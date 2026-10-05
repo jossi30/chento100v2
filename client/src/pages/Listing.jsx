@@ -1,0 +1,501 @@
+import React, { useEffect, useState } from 'react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { Swiper, SwiperSlide } from 'swiper/react';
+import { Navigation, Pagination } from 'swiper/modules';
+import SwiperCore from 'swiper';
+import 'swiper/css/bundle';
+import {
+  FaMapMarkerAlt,
+  FaBed,
+  FaBath,
+  FaUserFriends,
+  FaCar,
+  FaCogs,
+  FaGasPump,
+  FaCalendarAlt,
+  FaClock,
+  FaShieldAlt,
+  FaCheck,
+  FaShareAlt,
+  FaFlag,
+  FaWhatsapp,
+  FaPhoneAlt,
+  FaEnvelope,
+  FaArrowLeft,
+  FaEye,
+} from 'react-icons/fa';
+import { getListingById, submitReport } from '../services/listingService';
+import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
+
+export default function Listing() {
+  const { listingId } = useParams();
+  const { t } = useLanguage();
+  const { currentUser, isAdmin } = useAuth();
+  const navigate = useNavigate();
+
+  SwiperCore.use([Navigation, Pagination]);
+
+  const [listing, setListing] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [copied, setCopied] = useState(false);
+
+  // Report Modal State
+  const [reportModalOpen, setReportModalOpen] = useState(false);
+  const [reportReason, setReportReason] = useState('');
+  const [reporting, setReporting] = useState(false);
+  const [reportSuccess, setReportSuccess] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function fetchListingData() {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await getListingById(listingId);
+        if (!data) {
+          if (isMounted) setError('Listing not found or has been removed.');
+          return;
+        }
+
+        // Public users can only see approved listings unless owner or admin
+        const isOwner = currentUser && (currentUser.uid === data.ownerId || currentUser._id === data.ownerId);
+        if (data.status !== 'approved' && !isOwner && !isAdmin) {
+          if (isMounted) setError('This listing is currently pending moderation and is not yet publicly visible.');
+          return;
+        }
+
+        if (isMounted) setListing(data);
+      } catch (err) {
+        if (isMounted) setError(err.message || 'Failed to load listing details.');
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    }
+
+    fetchListingData();
+    return () => {
+      isMounted = false;
+    };
+  }, [listingId, currentUser, isAdmin]);
+
+  const handleShare = () => {
+    navigator.clipboard.writeText(window.location.href);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
+  };
+
+  const handleReportSubmit = async (e) => {
+    e.preventDefault();
+    if (!reportReason.trim()) return;
+
+    setReporting(true);
+    try {
+      await submitReport(listingId, reportReason.trim(), currentUser?.uid || 'visitor');
+      setReportSuccess(true);
+      setTimeout(() => {
+        setReportSuccess(false);
+        setReportModalOpen(false);
+        setReportReason('');
+      }, 2000);
+    } catch (err) {
+      alert('Failed to submit report: ' + err.message);
+    } finally {
+      setReporting(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className='min-h-[70vh] flex flex-col items-center justify-center space-y-4'>
+        <div className='w-10 h-10 border-4 border-amber-500 border-t-transparent rounded-full animate-spin' />
+        <p className='text-xs text-slate-500 font-medium'>Loading listing details...</p>
+      </div>
+    );
+  }
+
+  if (error || !listing) {
+    return (
+      <div className='min-h-[60vh] flex flex-col items-center justify-center px-4 text-center space-y-4'>
+        <div className='w-14 h-14 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center text-2xl'>
+          <FaShieldAlt />
+        </div>
+        <h2 className='text-xl font-bold text-slate-900'>Listing Unavailable</h2>
+        <p className='text-xs text-slate-600 max-w-md'>{error || 'This listing cannot be displayed.'}</p>
+        <Link
+          to='/search'
+          className='px-5 py-2.5 bg-slate-900 text-white font-bold rounded-lg text-xs hover:bg-slate-800 transition'
+        >
+          Browse Approved Listings
+        </Link>
+      </div>
+    );
+  }
+
+  const isGuestHouse = listing.type === 'guesthouse' || listing.category === 'guesthouse';
+  const images = Array.isArray(listing.images) && listing.images.length > 0
+    ? listing.images
+    : Array.isArray(listing.imageUrls) && listing.imageUrls.length > 0
+    ? listing.imageUrls
+    : [isGuestHouse ? '/images/airbnb_apartment_living.jpg' : '/images/city_regular_sedan.jpg'];
+
+  const cleanPhone = (listing.contactPhone || '').replace(/[^0-9+]/g, '');
+  const contactEmail = listing.ownerEmail || 'contact@chento100.com';
+  const price = Number(listing.price || listing.regularPrice) || 0;
+  const priceUnit = listing.priceUnit || (isGuestHouse ? 'night' : 'day');
+  const currency = listing.currency || 'USD';
+  const locationText = [listing.city, listing.area].filter(Boolean).join(', ') ||
+    listing.address || listing.location || 'Location details on request';
+
+  return (
+    <div className='max-w-6xl mx-auto px-4 py-8 text-slate-800 space-y-8'>
+      {/* Top Navigation Row */}
+      <div className='flex items-center justify-between'>
+        <button
+          onClick={() => navigate(-1)}
+          className='inline-flex items-center gap-2 text-xs font-semibold text-slate-600 hover:text-slate-900 py-1 transition cursor-pointer'
+        >
+          <FaArrowLeft />
+          <span>Back</span>
+        </button>
+
+        <div className='flex items-center gap-2'>
+          <button
+            onClick={handleShare}
+            className='inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition cursor-pointer shadow-2xs'
+          >
+            <FaShareAlt className='text-slate-500' />
+            <span>{copied ? 'Link Copied!' : 'Share'}</span>
+          </button>
+
+          <button
+            onClick={() => setReportModalOpen(true)}
+            className='inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-rose-50 text-slate-500 hover:text-rose-600 text-xs font-medium transition cursor-pointer'
+          >
+            <FaFlag className='text-xs' />
+            <span>Report</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Moderation Status Banner (if not approved) */}
+      {listing.status !== 'approved' && (
+        <div
+          className={`p-4 rounded-2xl border text-xs leading-relaxed flex items-center justify-between flex-wrap gap-2 ${
+            listing.status === 'pending'
+              ? 'bg-amber-50 border-amber-300 text-amber-900'
+              : 'bg-rose-50 border-rose-300 text-rose-900'
+          }`}
+        >
+          <div>
+            <span className='font-bold uppercase tracking-wider block mb-0.5'>
+              Listing Status: {listing.status}
+            </span>
+            {listing.status === 'pending'
+              ? 'This listing is pending moderation by the chento 100 team. Only you and platform administrators can see this preview.'
+              : `Moderation Feedback: ${listing.rejectionReason || 'Requires revision before publishing.'}`}
+          </div>
+          {isAdmin && (
+            <Link
+              to='/admin-dashboard'
+              className='px-3 py-1.5 bg-slate-900 text-white font-bold rounded-lg text-xs hover:bg-slate-800'
+            >
+              Review in Admin Queue
+            </Link>
+          )}
+        </div>
+      )}
+
+      {/* High-Resolution Swiper Gallery */}
+      <div className='rounded-3xl overflow-hidden shadow-lg border border-slate-200 bg-slate-900 max-h-[500px]'>
+        <Swiper navigation pagination={{ clickable: true }} className='h-[340px] sm:h-[480px]'>
+          {images.map((url, idx) => (
+            <SwiperSlide key={idx}>
+              <div className='w-full h-full relative flex items-center justify-center bg-black'>
+                <img
+                  src={url}
+                  alt={`${listing.title} photo ${idx + 1}`}
+                  className='w-full h-full object-cover sm:object-contain'
+                  loading='eager'
+                />
+              </div>
+            </SwiperSlide>
+          ))}
+        </Swiper>
+      </div>
+
+      {/* Content Columns */}
+      <div className='grid grid-cols-1 lg:grid-cols-3 gap-8 items-start'>
+        {/* Left Column: Details & Specs */}
+        <div className='lg:col-span-2 space-y-6'>
+          {/* Header & Meta */}
+          <div className='space-y-2 border-b border-slate-200 pb-5'>
+            <div className='flex items-center gap-2 flex-wrap'>
+              <span className='px-3 py-1 bg-slate-900 text-white text-xs font-bold rounded-full uppercase tracking-wider'>
+                {isGuestHouse ? 'Guest House Rental' : 'Car Leasing & Chauffeur'}
+              </span>
+              {listing.featured && (
+                <span className='px-2.5 py-1 bg-amber-400 text-slate-950 text-xs font-extrabold rounded-full'>
+                  ★ Featured
+                </span>
+              )}
+              <span className='text-xs text-slate-400 flex items-center gap-1 ml-auto'>
+                <FaEye /> {listing.viewCount || 1} views
+              </span>
+            </div>
+
+            <h1 className='text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight'>
+              {listing.title || listing.name}
+            </h1>
+
+            <div className='flex items-center gap-1.5 text-xs sm:text-sm text-slate-600'>
+              <FaMapMarkerAlt className='text-amber-500 shrink-0' />
+              <span>{locationText}</span>
+            </div>
+          </div>
+
+          {/* Quick Specifications Pill Bar */}
+          <div className='p-4 bg-slate-50 border border-slate-200/90 rounded-2xl grid grid-cols-2 sm:grid-cols-4 gap-4 text-center'>
+            {isGuestHouse ? (
+              <>
+                <div className='p-2'>
+                  <FaBed className='text-slate-400 mx-auto text-lg mb-1' />
+                  <span className='text-xs text-slate-500 block font-medium'>Bedrooms</span>
+                  <span className='text-sm font-bold text-slate-900'>{listing.bedrooms || 1} Rooms</span>
+                </div>
+                <div className='p-2'>
+                  <FaBath className='text-slate-400 mx-auto text-lg mb-1' />
+                  <span className='text-xs text-slate-500 block font-medium'>Bathrooms</span>
+                  <span className='text-sm font-bold text-slate-900'>{listing.bathrooms || 1} Baths</span>
+                </div>
+                <div className='p-2'>
+                  <FaUserFriends className='text-slate-400 mx-auto text-lg mb-1' />
+                  <span className='text-xs text-slate-500 block font-medium'>Max Capacity</span>
+                  <span className='text-sm font-bold text-slate-900'>{listing.maxGuests || 2} Guests</span>
+                </div>
+                <div className='p-2'>
+                  <FaClock className='text-slate-400 mx-auto text-lg mb-1' />
+                  <span className='text-xs text-slate-500 block font-medium'>Check-In / Out</span>
+                  <span className='text-sm font-bold text-slate-900'>
+                    {listing.checkIn || '14:00'} / {listing.checkOut || '11:00'}
+                  </span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className='p-2'>
+                  <FaCar className='text-slate-400 mx-auto text-lg mb-1' />
+                  <span className='text-xs text-slate-500 block font-medium'>Make / Model</span>
+                  <span className='text-sm font-bold text-slate-900'>
+                    {listing.make || ''} {listing.model || 'Sedan'}
+                  </span>
+                </div>
+                <div className='p-2'>
+                  <FaUserFriends className='text-slate-400 mx-auto text-lg mb-1' />
+                  <span className='text-xs text-slate-500 block font-medium'>Seats</span>
+                  <span className='text-sm font-bold text-slate-900'>{listing.seats || 4} Passengers</span>
+                </div>
+                <div className='p-2'>
+                  <FaCogs className='text-slate-400 mx-auto text-lg mb-1' />
+                  <span className='text-xs text-slate-500 block font-medium'>Transmission</span>
+                  <span className='text-sm font-bold text-slate-900 capitalize'>{listing.transmission || 'Automatic'}</span>
+                </div>
+                <div className='p-2'>
+                  <FaShieldAlt className='text-slate-400 mx-auto text-lg mb-1' />
+                  <span className='text-xs text-slate-500 block font-medium'>Chauffeur</span>
+                  <span className='text-sm font-bold text-emerald-600'>
+                    {listing.driverIncluded ? 'Included' : 'Self-Drive'}
+                  </span>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Description Section */}
+          <div className='space-y-3'>
+            <h2 className='text-lg font-bold text-slate-900'>About this {isGuestHouse ? 'Guest House' : 'Vehicle'}</h2>
+            <div className='text-sm text-slate-700 leading-relaxed whitespace-pre-line'>
+              {listing.description}
+            </div>
+          </div>
+
+          {/* Guest House Amenities */}
+          {isGuestHouse && Array.isArray(listing.amenities) && listing.amenities.length > 0 && (
+            <div className='space-y-3 pt-4 border-t border-slate-200'>
+              <h2 className='text-lg font-bold text-slate-900'>Included Amenities</h2>
+              <div className='grid grid-cols-2 sm:grid-cols-3 gap-2.5'>
+                {listing.amenities.map((amenity, i) => (
+                  <div key={i} className='flex items-center gap-2 p-2.5 bg-slate-50 rounded-xl text-xs font-semibold text-slate-800 border border-slate-200/60'>
+                    <FaCheck className='text-emerald-500 text-xs shrink-0' />
+                    <span>{amenity}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* House Rules or Lease Guidelines */}
+          {isGuestHouse && listing.houseRules && (
+            <div className='space-y-2 pt-4 border-t border-slate-200'>
+              <h2 className='text-lg font-bold text-slate-900'>House Rules</h2>
+              <p className='text-xs sm:text-sm text-slate-600 leading-relaxed bg-amber-50/50 p-4 rounded-2xl border border-amber-200/60'>
+                {listing.houseRules}
+              </p>
+            </div>
+          )}
+
+          {/* Car Lease Specifications */}
+          {!isGuestHouse && (
+            <div className='space-y-3 pt-4 border-t border-slate-200'>
+              <h2 className='text-lg font-bold text-slate-900'>Leasing Terms &amp; Conditions</h2>
+              <div className='grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs'>
+                <div className='p-3 bg-slate-50 rounded-xl border border-slate-200'>
+                  <span className='text-slate-400 block'>Mileage Allowance</span>
+                  <span className='font-bold text-slate-800'>{listing.mileageLimit || '200 km / day'}</span>
+                </div>
+                <div className='p-3 bg-slate-50 rounded-xl border border-slate-200'>
+                  <span className='text-slate-400 block'>Security Deposit</span>
+                  <span className='font-bold text-slate-800'>
+                    {listing.deposit ? `$${listing.deposit}` : 'No deposit required'}
+                  </span>
+                </div>
+                <div className='p-3 bg-slate-50 rounded-xl border border-slate-200'>
+                  <span className='text-slate-400 block'>Min Lease Term</span>
+                  <span className='font-bold text-slate-800'>{listing.minLeaseTerm || '1 day'}</span>
+                </div>
+                <div className='p-3 bg-slate-50 rounded-xl border border-slate-200'>
+                  <span className='text-slate-400 block'>Fuel Type</span>
+                  <span className='font-bold text-slate-800'>{listing.fuel || 'Petrol'}</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Right Column: Rate Card & Direct Contact Actions */}
+        <div className='space-y-6 lg:sticky lg:top-24'>
+          <div className='bg-white p-6 rounded-3xl border border-slate-200 shadow-xl space-y-5'>
+            {/* Price Header */}
+            <div className='border-b border-slate-100 pb-4'>
+              <span className='text-xs text-slate-400 font-semibold uppercase tracking-wider block'>Rate</span>
+              <div className='flex items-baseline gap-1 mt-1'>
+                <span className='text-3xl font-black text-slate-900'>
+                  {currency === 'USD' ? '$' : `${currency} `}
+                  {price.toLocaleString()}
+                </span>
+                <span className='text-xs text-slate-500 font-medium'> / {priceUnit}</span>
+              </div>
+            </div>
+
+            {/* Direct Contact Buttons */}
+            <div className='space-y-2.5'>
+              <span className='text-xs font-bold text-slate-700 uppercase tracking-wider block'>
+                Contact Host / Chauffeur
+              </span>
+
+              {/* WhatsApp Direct Link */}
+              {cleanPhone && (
+                <a
+                  href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent(
+                    `Hello, I saw your listing "${listing.title}" on chento 100 marketplace and would like to inquire about booking/leasing.`
+                  )}`}
+                  target='_blank'
+                  rel='noopener noreferrer'
+                  className='w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md transition'
+                >
+                  <FaWhatsapp className='text-base' />
+                  <span>Chat on WhatsApp</span>
+                </a>
+              )}
+
+              {/* Direct Phone Call */}
+              {listing.contactPhone && (
+                <a
+                  href={`tel:${cleanPhone}`}
+                  className='w-full py-3 px-4 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md transition'
+                >
+                  <FaPhoneAlt className='text-xs' />
+                  <span>Call {listing.contactPhone}</span>
+                </a>
+              )}
+
+              {/* Email Contact */}
+              <a
+                href={`mailto:${contactEmail}?subject=${encodeURIComponent(
+                  `Inquiry regarding ${listing.title} on chento 100`
+                )}&body=${encodeURIComponent(
+                  `Hello,\n\nI would like to inquire about availability and booking for "${listing.title}".\n\nListing link: ${window.location.href}`
+                )}`}
+                className='w-full py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 transition'
+              >
+                <FaEnvelope className='text-xs' />
+                <span>Send Email Inquiry</span>
+              </a>
+            </div>
+
+            {/* Safety badge */}
+            <div className='pt-2 border-t border-slate-100 text-[11px] text-slate-500 leading-relaxed flex items-center gap-2'>
+              <FaShieldAlt className='text-amber-500 text-base shrink-0' />
+              <span>Direct verification: All host profiles &amp; contact channels are reviewed before publication.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Report Modal */}
+      {reportModalOpen && (
+        <div
+          className='fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4'
+          onClick={() => setReportModalOpen(false)}
+        >
+          <div
+            className='bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4'
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className='flex items-center gap-2 text-rose-600'>
+              <FaFlag />
+              <h3 className='font-bold text-base text-slate-900'>Report This Listing</h3>
+            </div>
+            <p className='text-xs text-slate-600 leading-relaxed'>
+              Help us maintain marketplace standards. Please describe the violation (misleading photos, incorrect pricing, invalid contact, etc.).
+            </p>
+
+            {reportSuccess ? (
+              <div className='p-4 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-semibold text-center'>
+                Thank you. Your report has been submitted to the moderation team.
+              </div>
+            ) : (
+              <form onSubmit={handleReportSubmit} className='space-y-4'>
+                <textarea
+                  rows='4'
+                  required
+                  value={reportReason}
+                  onChange={(e) => setReportReason(e.target.value)}
+                  placeholder='Explain the reason for reporting this listing...'
+                  className='w-full p-3 text-xs border border-slate-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-slate-900'
+                />
+                <div className='flex justify-end gap-2'>
+                  <button
+                    type='button'
+                    onClick={() => setReportModalOpen(false)}
+                    className='px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 rounded-lg'
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type='submit'
+                    disabled={reporting}
+                    className='px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-lg transition disabled:opacity-50'
+                  >
+                    {reporting ? 'Submitting...' : 'Submit Report'}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
