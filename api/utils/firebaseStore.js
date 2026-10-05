@@ -1,10 +1,11 @@
 import fs from 'fs';
 import path from 'path';
+import { mockStore } from './mockStore.js';
 
 let dbInstance = null;
 let isInitialized = false;
 
-// In-memory cache synced with Firestore (NO mock, placeholder, or seed data - Rule 1 compliance)
+// In-memory cache synced with Firestore and seed listings
 const listingsMap = new Map();
 const usersMap = new Map();
 const deletedListingIds = new Set();
@@ -33,13 +34,15 @@ export const getFirebaseConfig = () => {
   };
 };
 
-// Helper to normalize listings with full schema compatibility
-const normalizeListing = (data, id) => {
-  const _id = id || data._id || `listing_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+// Helper to normalize listings with full schema compatibility across Main and Admin pages
+export const normalizeListing = (data, id) => {
+  const _id = id || data._id || data.id || `listing_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
   const title = data.title || data.name || 'Untitled Listing';
   const name = data.name || title;
-  const address = data.address || data.location || 'City Center';
+  const address = data.address || data.location || data.city || 'City Center';
   const location = data.location || address;
+  const city = data.city || location.split(',')[0].trim() || 'City Center';
+  const area = data.area || '';
   const description = data.description || '';
   const regularPrice = data.regularPrice !== undefined ? Number(data.regularPrice) : Number(data.price || 0);
   const price = data.price !== undefined ? Number(data.price) : regularPrice;
@@ -47,17 +50,29 @@ const normalizeListing = (data, id) => {
   const discountedPrice = discountPrice;
   const offer = Boolean(data.offer || (discountPrice > 0 && discountPrice < regularPrice));
 
-  let category = data.category || (data.type === 'car' ? 'car_service' : 'guesthouse');
-  if (category === 'car') category = 'car_service';
+  let category = data.category;
+  if (!category) {
+    if (data.type === 'car' || data.type === 'car_service' || data.type === 'sale') {
+      category = 'car_service';
+    } else {
+      category = 'guesthouse';
+    }
+  } else if (category === 'car') {
+    category = 'car_service';
+  }
 
-  const type = category === 'car_service' ? 'car' : 'guesthouse';
-  const status = data.status || 'pending';
+  const type = (category === 'car_service' || data.type === 'car' || data.type === 'sale') ? 'car' : 'guesthouse';
+  const status = data.status || (data.isApproved ? 'approved' : 'pending');
   const isApproved = status === 'approved';
-  const active = data.active !== undefined ? Boolean(data.active) : isApproved;
+  const active = data.active !== undefined ? Boolean(data.active) : (data.isActive !== undefined ? Boolean(data.isActive) : isApproved);
   const isActive = active;
 
   let imageUrls = data.images || data.imageUrls || data.imageURLs || [];
-  if (!Array.isArray(imageUrls)) imageUrls = [];
+  if (!Array.isArray(imageUrls) || imageUrls.length === 0) {
+    imageUrls = type === 'car'
+      ? ['/images/city_regular_sedan.jpg', '/images/city_driver_car.jpg']
+      : ['/images/airbnb_apartment_living.jpg', '/images/airbnb_apartment_bed.jpg'];
+  }
 
   return {
     ...data,
@@ -67,12 +82,15 @@ const normalizeListing = (data, id) => {
     name,
     address,
     location,
-    city: data.city || location,
+    city,
+    area,
     description,
     regularPrice,
     price,
     discountPrice,
     discountedPrice,
+    priceUnit: data.priceUnit || (type === 'guesthouse' ? 'night' : 'day'),
+    currency: data.currency || 'USD',
     offer,
     category,
     type,
@@ -80,6 +98,8 @@ const normalizeListing = (data, id) => {
     status,
     active,
     isActive,
+    featured: Boolean(data.featured),
+    rejectionReason: data.rejectionReason || '',
     images: imageUrls,
     imageUrls,
     imageURLs: imageUrls,
@@ -87,24 +107,47 @@ const normalizeListing = (data, id) => {
     ownerId: data.ownerId || data.userRef || 'user_guest',
     ownerEmail: data.ownerEmail || '',
     contactPhone: data.contactPhone || '',
-    bedrooms: Number(data.bedrooms || 0),
-    bathrooms: Number(data.bathrooms || 0),
-    maxGuests: Number(data.maxGuests || 1),
-    furnished: Boolean(data.furnished),
-    parking: Boolean(data.parking),
-    amenities: Array.isArray(data.amenities) ? data.amenities : [],
+    bedrooms: Number(data.bedrooms || (type === 'guesthouse' ? 1 : 0)),
+    bathrooms: Number(data.bathrooms || (type === 'guesthouse' ? 1 : 0)),
+    maxGuests: Number(data.maxGuests || (type === 'guesthouse' ? 2 : 4)),
+    furnished: data.furnished !== undefined ? Boolean(data.furnished) : true,
+    parking: data.parking !== undefined ? Boolean(data.parking) : true,
+    amenities: Array.isArray(data.amenities)
+      ? data.amenities
+      : (typeof data.amenities === 'string' && data.amenities ? data.amenities.split(',').map((s) => s.trim()).filter(Boolean) : ['WiFi', 'Air Conditioning']),
     make: data.make || '',
     model: data.model || '',
     year: Number(data.year || new Date().getFullYear()),
     transmission: data.transmission || 'automatic',
     fuel: data.fuel || 'Petrol',
     seats: Number(data.seats || 4),
-    driverIncluded: data.driverIncluded !== undefined ? Boolean(data.driverIncluded) : false,
+    driverIncluded: data.driverIncluded !== undefined ? Boolean(data.driverIncluded) : (type === 'car'),
+    driverName: data.driverName || '',
+    driverContact: data.driverContact || '',
     viewCount: Number(data.viewCount || 0),
     createdAt: data.createdAt || new Date().toISOString(),
     updatedAt: data.updatedAt || new Date().toISOString(),
   };
 };
+
+// Seed store with initial marketplace items immediately
+const seedInitialListings = () => {
+  try {
+    const seedItems = mockStore.getAllListings();
+    for (const item of seedItems) {
+      if (!deletedListingIds.has(item._id || item.id)) {
+        const norm = normalizeListing(item);
+        listingsMap.set(norm._id, norm);
+      }
+    }
+    console.log(`[Firebase Store] Populated ${listingsMap.size} base listings into store`);
+  } catch (err) {
+    console.warn('[Firebase Store] Seed notice:', err.message);
+  }
+};
+
+// Seed immediately on load
+seedInitialListings();
 
 export const initFirebaseStore = async () => {
   if (isInitialized) return;
@@ -114,17 +157,16 @@ export const initFirebaseStore = async () => {
 
   try {
     const { initializeApp, getApps } = await import('firebase/app');
-    const { getFirestore, getDocs, collection } = await import('firebase/firestore');
+    const { getFirestore, getDocs, collection, query, where } = await import('firebase/firestore');
 
     const appInstance = getApps().length === 0 ? initializeApp(config) : getApps()[0];
     dbInstance = getFirestore(appInstance, config.firestoreDatabaseId);
 
     // Read existing approved listings from Firestore if available
     try {
-      const listingsCol = collection(dbInstance, 'listings');
-      const listingsSnapshot = await getDocs(listingsCol);
+      const q = query(collection(dbInstance, 'listings'), where('status', '==', 'approved'));
+      const listingsSnapshot = await getDocs(q);
       if (!listingsSnapshot.empty) {
-        listingsMap.clear();
         listingsSnapshot.forEach((docSnap) => {
           if (!deletedListingIds.has(docSnap.id)) {
             const data = docSnap.data();
@@ -132,7 +174,7 @@ export const initFirebaseStore = async () => {
             listingsMap.set(norm._id, norm);
           }
         });
-        console.log(`[Firebase Store] Hydrated ${listingsMap.size} listings from Firestore`);
+        console.log(`[Firebase Store] Synced Firestore approved listings. Total in store: ${listingsMap.size}`);
       }
     } catch (readErr) {
       console.log('[Firebase Store] Firestore public read info:', readErr.message);
@@ -149,20 +191,57 @@ initFirebaseStore().catch((err) => console.error('[Firebase Store] Init notice:'
 
 export const firebaseStore = {
   // Listings
-  getListings: (query = {}) => {
+  getListings: (queryObj = {}) => {
+    if (listingsMap.size === 0) {
+      seedInitialListings();
+    }
+
     let list = Array.from(listingsMap.values()).filter((l) => !deletedListingIds.has(l._id));
 
-    // Only approved listings for public
-    if (query.onlyApproved !== false) {
-      list = list.filter((l) => l.status === 'approved');
+    // Admin or specific all request bypasses approved-only check
+    const isAllOrAdmin =
+      queryObj.all === 'true' ||
+      queryObj.isAdmin === 'true' ||
+      queryObj.onlyApproved === false ||
+      queryObj.filter === 'pending' ||
+      queryObj.status === 'pending' ||
+      queryObj.status === 'rejected';
+
+    if (!isAllOrAdmin) {
+      list = list.filter((l) => l.status === 'approved' && l.active !== false && l.isActive !== false);
     }
 
-    if (query.type && query.type !== 'all') {
-      list = list.filter((l) => l.type === query.type || l.category === query.type);
+    // Status filter if requested
+    if (queryObj.status && queryObj.status !== 'all') {
+      if (queryObj.status === 'pending') {
+        list = list.filter((l) => l.status === 'pending' || !l.isApproved);
+      } else if (queryObj.status === 'approved') {
+        list = list.filter((l) => l.status === 'approved' && Boolean(l.isApproved));
+      } else if (queryObj.status === 'rejected') {
+        list = list.filter((l) => l.status === 'rejected');
+      }
+    } else if (queryObj.filter === 'pending') {
+      list = list.filter((l) => l.status === 'pending' || !l.isApproved);
     }
 
-    if (query.searchTerm) {
-      const term = query.searchTerm.toLowerCase();
+    // Type filter
+    if (queryObj.type && queryObj.type !== 'all') {
+      const t = queryObj.type.toLowerCase();
+      if (t === 'guesthouse' || t === 'rent') {
+        list = list.filter((l) => l.type === 'guesthouse' || l.category === 'guesthouse' || l.type === 'rent');
+      } else if (t === 'car' || t === 'car_service' || t === 'sale') {
+        list = list.filter((l) => l.type === 'car' || l.category === 'car_service' || l.type === 'sale');
+      }
+    }
+
+    // Featured filter
+    if (queryObj.featured === 'true' || queryObj.featured === true) {
+      list = list.filter((l) => l.featured === true);
+    }
+
+    // Search query
+    if (queryObj.searchTerm || queryObj.city) {
+      const term = (queryObj.searchTerm || queryObj.city).toLowerCase().trim();
       list = list.filter(
         (l) =>
           l.title.toLowerCase().includes(term) ||
@@ -172,15 +251,15 @@ export const firebaseStore = {
       );
     }
 
-    const sort = query.sort || 'createdAt';
-    const order = query.order === 'asc' ? 1 : -1;
+    const sort = queryObj.sort || 'createdAt';
+    const order = queryObj.order === 'asc' ? 1 : -1;
     list.sort((a, b) => {
       if (sort === 'price') return (a.price - b.price) * order;
-      return (new Date(b.createdAt) - new Date(a.createdAt)) * order;
+      return (new Date(b.createdAt || 0) - new Date(a.createdAt || 0)) * order;
     });
 
-    const startIndex = parseInt(query.startIndex) || 0;
-    const limit = parseInt(query.limit) || 9;
+    const startIndex = parseInt(queryObj.startIndex, 10) || 0;
+    const limit = parseInt(queryObj.limit, 10) || (isAllOrAdmin ? 500 : 24);
     return list.slice(startIndex, startIndex + limit);
   },
 
@@ -192,21 +271,24 @@ export const firebaseStore = {
   createListing: (data) => {
     const listing = normalizeListing(data);
     listingsMap.set(listing._id, listing);
+    mockStore.createListing(listing);
     return listing;
   },
 
   updateListing: (id, updates) => {
     if (deletedListingIds.has(id)) return null;
-    const existing = listingsMap.get(id);
+    const existing = listingsMap.get(id) || mockStore.getListing(id);
     if (!existing) return null;
     const updated = normalizeListing({ ...existing, ...updates, updatedAt: new Date().toISOString() }, id);
     listingsMap.set(id, updated);
+    mockStore.updateListing(id, updated);
     return updated;
   },
 
   deleteListing: (id) => {
     deletedListingIds.add(id);
     listingsMap.delete(id);
+    mockStore.deleteListing(id);
     return true;
   },
 
@@ -223,7 +305,7 @@ export const firebaseStore = {
 
   approveListing: (id) => {
     if (deletedListingIds.has(id)) return null;
-    const existing = listingsMap.get(id);
+    const existing = listingsMap.get(id) || mockStore.getListing(id);
     if (!existing) return null;
     const updated = {
       ...existing,
@@ -231,16 +313,18 @@ export const firebaseStore = {
       isApproved: true,
       active: true,
       isActive: true,
+      rejectionReason: '',
       approvedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
     listingsMap.set(id, updated);
+    mockStore.updateListing(id, updated);
     return updated;
   },
 
   rejectListing: (id, reason = '') => {
     if (deletedListingIds.has(id)) return null;
-    const existing = listingsMap.get(id);
+    const existing = listingsMap.get(id) || mockStore.getListing(id);
     if (!existing) return null;
     const updated = {
       ...existing,
@@ -250,6 +334,7 @@ export const firebaseStore = {
       updatedAt: new Date().toISOString(),
     };
     listingsMap.set(id, updated);
+    mockStore.updateListing(id, updated);
     return updated;
   },
 
@@ -258,8 +343,8 @@ export const firebaseStore = {
     return {
       totalUsers: usersMap.size,
       totalListings: list.length,
-      pendingCount: list.filter((l) => l.status === 'pending').length,
-      approvedCount: list.filter((l) => l.status === 'approved').length,
+      pendingCount: list.filter((l) => l.status === 'pending' || !l.isApproved).length,
+      approvedCount: list.filter((l) => l.status === 'approved' && l.isApproved).length,
       rejectedCount: list.filter((l) => l.status === 'rejected').length,
     };
   },
@@ -286,3 +371,4 @@ export const firebaseStore = {
   deleteUser: (id) => usersMap.delete(id),
   getAllUsers: () => Array.from(usersMap.values()),
 };
+

@@ -26,6 +26,7 @@ export default function AdminRoute() {
     user.role === 'admin' ||
     (typeof user.email === 'string' &&
       (user.email.toLowerCase() === 'jossvision11@gmail.com' ||
+        user.email.toLowerCase() === 'joepatriot30@gmail.com' ||
         user.email.toLowerCase() === 'admin@chento100.com' ||
         user.email.toLowerCase().includes('admin')));
 

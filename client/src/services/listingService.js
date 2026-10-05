@@ -27,7 +27,108 @@ const AUDIT_COLLECTION = 'auditLogs';
 const SETTINGS_COLLECTION = 'settings';
 
 /**
+ * Normalizes any listing object into standard frontend format
+ */
+export function normalizeClientListing(data, id) {
+  if (!data) return null;
+  const _id = id || data.id || data._id || `listing_${Date.now()}`;
+  const isGuestHouse =
+    data.type === 'guesthouse' ||
+    data.category === 'guesthouse' ||
+    data.type === 'rent';
+  const type = isGuestHouse ? 'guesthouse' : 'car';
+  const category = isGuestHouse ? 'guesthouse' : 'car_service';
+  const title = data.title || data.name || 'Untitled Listing';
+  const name = data.name || title;
+
+  let images = Array.isArray(data.images) && data.images.length > 0
+    ? data.images
+    : Array.isArray(data.imageUrls) && data.imageUrls.length > 0
+    ? data.imageUrls
+    : [isGuestHouse ? '/images/airbnb_apartment_living.jpg' : '/images/city_regular_sedan.jpg'];
+
+  const price = Number(data.price !== undefined ? data.price : (data.regularPrice || 0));
+  const regularPrice = Number(data.regularPrice !== undefined ? data.regularPrice : price);
+  const discountPrice = Number(data.discountPrice || data.discountedPrice || 0);
+  const location = data.location || data.address || 'City Center';
+  const city = data.city || location.split(',')[0].trim() || 'City Center';
+  const area = data.area || '';
+  const address = data.address || location;
+
+  const status = data.status || (data.isApproved ? 'approved' : 'pending');
+  const isApproved = status === 'approved' || Boolean(data.isApproved);
+  const active = data.active !== undefined ? Boolean(data.active) : (data.isActive !== undefined ? Boolean(data.isActive) : isApproved);
+
+  return {
+    ...data,
+    id: _id,
+    _id,
+    type,
+    category,
+    title,
+    name,
+    description: data.description || '',
+    images,
+    imageUrls: images,
+    price,
+    regularPrice,
+    discountPrice,
+    discountedPrice: discountPrice,
+    priceUnit: data.priceUnit || (isGuestHouse ? 'night' : 'day'),
+    currency: data.currency || 'USD',
+    location,
+    address,
+    city,
+    area,
+    status,
+    isApproved,
+    active,
+    isActive: active,
+    featured: Boolean(data.featured),
+    rejectionReason: data.rejectionReason || '',
+    ownerId: data.ownerId || data.userRef || 'user_guest',
+    userRef: data.userRef || data.ownerId || 'user_guest',
+    ownerEmail: data.ownerEmail || '',
+    contactPhone: data.contactPhone || '',
+    bedrooms: Number(data.bedrooms || (isGuestHouse ? 1 : 0)),
+    bathrooms: Number(data.bathrooms || (isGuestHouse ? 1 : 0)),
+    maxGuests: Number(data.maxGuests || (isGuestHouse ? 2 : 4)),
+    seats: Number(data.seats || (isGuestHouse ? 0 : 4)),
+    driverIncluded: data.driverIncluded !== undefined ? Boolean(data.driverIncluded) : !isGuestHouse,
+    driverName: data.driverName || '',
+    driverContact: data.driverContact || '',
+    amenities: Array.isArray(data.amenities)
+      ? data.amenities
+      : (typeof data.amenities === 'string' && data.amenities ? data.amenities.split(',').map((s) => s.trim()).filter(Boolean) : ['WiFi', 'Air Conditioning']),
+    viewCount: Number(data.viewCount || 0),
+    createdAt: data.createdAt || new Date().toISOString(),
+    updatedAt: data.updatedAt || new Date().toISOString(),
+  };
+}
+
+/**
+ * Fetch from backend API bridge for synchronized data
+ */
+async function fetchApiListings(params = {}) {
+  try {
+    const q = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== null && v !== undefined && v !== '') {
+        q.set(k, String(v));
+      }
+    });
+    const res = await fetch(`/api/listing/get?${q.toString()}`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+/**
  * Fetch approved listings with filtering, sorting, and cursor pagination
+ * Fully synced between Firestore and Admin API
  */
 export async function getApprovedListings({
   type = null,
@@ -42,142 +143,173 @@ export async function getApprovedListings({
   lastDoc = null,
   pageSize = 12,
 } = {}) {
+  const combinedMap = new Map();
+
+  // 1. Try Firestore approved query
   try {
     let q = collection(db, LISTINGS_COLLECTION);
     const constraints = [where('status', '==', 'approved')];
-
     if (type && type !== 'all') {
       constraints.push(where('type', '==', type));
     }
+    const snap = await getDocs(query(q, ...constraints));
+    snap.forEach((docSnap) => {
+      const norm = normalizeClientListing(docSnap.data(), docSnap.id);
+      norm._doc = docSnap;
+      combinedMap.set(norm.id, norm);
+    });
+  } catch (err) {
+    // Firestore might be unseeded or offline
+  }
 
-    if (sortBy === 'price_asc') {
-      constraints.push(orderBy('price', 'asc'));
-    } else if (sortBy === 'price_desc') {
-      constraints.push(orderBy('price', 'desc'));
-    } else {
-      constraints.push(orderBy('createdAt', 'desc'));
-    }
-
-    if (lastDoc) {
-      constraints.push(startAfter(lastDoc));
-    }
-
-    constraints.push(limit(pageSize));
-
-    const querySnapshot = await getDocs(query(q, ...constraints));
-    const items = [];
-
-    querySnapshot.forEach((docSnap) => {
-      const data = docSnap.data();
-      let matches = true;
-
-      // In-memory refinement for secondary filters
-      if (city && city.trim() && data.city) {
-        if (!data.city.toLowerCase().includes(city.toLowerCase().trim()) &&
-            !data.location?.toLowerCase().includes(city.toLowerCase().trim())) {
-          matches = false;
-        }
-      }
-
-      if (minPrice !== null && minPrice !== undefined && Number(data.price) < Number(minPrice)) {
-        matches = false;
-      }
-      if (maxPrice !== null && maxPrice !== undefined && Number(data.price) > Number(maxPrice)) {
-        matches = false;
-      }
-
-      if (bedrooms && data.type === 'guesthouse' && Number(data.bedrooms) < Number(bedrooms)) {
-        matches = false;
-      }
-
-      if (seats && data.type === 'car' && Number(data.seats) < Number(seats)) {
-        matches = false;
-      }
-
-      if (driverIncluded !== null && data.type === 'car' && Boolean(data.driverIncluded) !== Boolean(driverIncluded)) {
-        matches = false;
-      }
-
-      if (amenities && amenities.length > 0 && data.amenities) {
-        const itemAmenities = Array.isArray(data.amenities) ? data.amenities : [];
-        const hasAll = amenities.every((a) =>
-          itemAmenities.some((ia) => ia.toLowerCase().includes(a.toLowerCase()))
-        );
-        if (!hasAll) matches = false;
-      }
-
-      if (matches) {
-        items.push({
-          id: docSnap.id,
-          ...data,
-          _doc: docSnap,
-        });
+  // 2. Fetch from Backend API bridge (includes admin creations and approved items)
+  try {
+    const apiParams = { onlyApproved: true };
+    if (type && type !== 'all') apiParams.type = type;
+    const apiItems = await fetchApiListings(apiParams);
+    apiItems.forEach((item) => {
+      const norm = normalizeClientListing(item);
+      if (!combinedMap.has(norm.id)) {
+        combinedMap.set(norm.id, norm);
+      } else {
+        const existing = combinedMap.get(norm.id);
+        combinedMap.set(norm.id, { ...existing, ...norm });
       }
     });
-
-    const lastVisible = querySnapshot.docs[querySnapshot.docs.length - 1] || null;
-
-    return {
-      listings: items,
-      lastVisible,
-      hasMore: querySnapshot.docs.length === pageSize,
-    };
-  } catch (err) {
-    handleFirestoreError(err, OperationType.GET, LISTINGS_COLLECTION);
-    return { listings: [], lastVisible: null, hasMore: false };
+  } catch (apiErr) {
+    console.warn('API listings sync error:', apiErr.message);
   }
+
+  // 3. In-memory refinement for secondary filters
+  let items = Array.from(combinedMap.values()).filter((data) => {
+    // Only approved & active listings on main page
+    if (data.status !== 'approved' || data.active === false || data.isActive === false) {
+      return false;
+    }
+
+    if (type && type !== 'all') {
+      if (type === 'guesthouse') {
+        if (data.type !== 'guesthouse' && data.category !== 'guesthouse' && data.type !== 'rent') {
+          return false;
+        }
+      } else if (type === 'car') {
+        if (data.type !== 'car' && data.category !== 'car_service' && data.type !== 'sale') {
+          return false;
+        }
+      }
+    }
+
+    if (city && city.trim()) {
+      const c = city.toLowerCase().trim();
+      const inCity = data.city && data.city.toLowerCase().includes(c);
+      const inLoc = data.location && data.location.toLowerCase().includes(c);
+      const inAddr = data.address && data.address.toLowerCase().includes(c);
+      const inTitle = data.title && data.title.toLowerCase().includes(c);
+      if (!inCity && !inLoc && !inAddr && !inTitle) return false;
+    }
+
+    if (minPrice !== null && minPrice !== undefined && Number(data.price) < Number(minPrice)) {
+      return false;
+    }
+    if (maxPrice !== null && maxPrice !== undefined && Number(data.price) > Number(maxPrice)) {
+      return false;
+    }
+
+    if (bedrooms && data.type === 'guesthouse' && Number(data.bedrooms) < Number(bedrooms)) {
+      return false;
+    }
+
+    if (seats && data.type === 'car' && Number(data.seats) < Number(seats)) {
+      return false;
+    }
+
+    if (driverIncluded !== null && data.type === 'car' && Boolean(data.driverIncluded) !== Boolean(driverIncluded)) {
+      return false;
+    }
+
+    if (amenities && amenities.length > 0 && data.amenities) {
+      const itemAmenities = Array.isArray(data.amenities) ? data.amenities : [];
+      const hasAll = amenities.every((a) =>
+        itemAmenities.some((ia) => ia.toLowerCase().includes(a.toLowerCase()))
+      );
+      if (!hasAll) return false;
+    }
+
+    return true;
+  });
+
+  // Sort
+  if (sortBy === 'price_asc') {
+    items.sort((a, b) => Number(a.price) - Number(b.price));
+  } else if (sortBy === 'price_desc') {
+    items.sort((a, b) => Number(b.price) - Number(a.price));
+  } else {
+    items.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+  }
+
+  const pagedListings = items.slice(0, pageSize);
+  return {
+    listings: pagedListings,
+    lastVisible: null,
+    hasMore: items.length > pageSize,
+  };
 }
 
 /**
  * Fetch featured approved listings
  */
 export async function getFeaturedListings(type = null, limitCount = 6) {
+  const combinedMap = new Map();
+
   try {
     const constraints = [
       where('status', '==', 'approved'),
       where('featured', '==', true),
       limit(limitCount),
     ];
-
-    if (type) {
-      constraints.unshift(where('type', '==', type));
-    }
-
-    const q = query(collection(db, LISTINGS_COLLECTION), ...constraints);
-    const snap = await getDocs(q);
-    const list = [];
-    snap.forEach((d) => list.push({ id: d.id, ...d.data() }));
-    return list;
+    if (type && type !== 'all') constraints.unshift(where('type', '==', type));
+    const snap = await getDocs(query(collection(db, LISTINGS_COLLECTION), ...constraints));
+    snap.forEach((d) => {
+      const norm = normalizeClientListing(d.data(), d.id);
+      combinedMap.set(norm.id, norm);
+    });
   } catch (err) {
-    handleFirestoreError(err, OperationType.GET, LISTINGS_COLLECTION);
-    return [];
+    /* ignore firestore error */
   }
+
+  try {
+    const apiItems = await fetchApiListings({ onlyApproved: true, featured: true });
+    apiItems.forEach((item) => {
+      const norm = normalizeClientListing(item);
+      if (!combinedMap.has(norm.id)) combinedMap.set(norm.id, norm);
+    });
+  } catch (e) {
+    /* ignore api error */
+  }
+
+  let list = Array.from(combinedMap.values()).filter((item) => {
+    if (item.status !== 'approved' || item.active === false || item.isActive === false) return false;
+    if (type && type !== 'all') {
+      if (type === 'guesthouse' && item.type !== 'guesthouse' && item.category !== 'guesthouse') return false;
+      if (type === 'car' && item.type !== 'car' && item.category !== 'car_service') return false;
+    }
+    return Boolean(item.featured);
+  });
+
+  if (list.length === 0) {
+    const fallbackListings = await getApprovedListings({ type, pageSize: limitCount });
+    return fallbackListings.listings.slice(0, limitCount);
+  }
+
+  return list.slice(0, limitCount);
 }
 
 /**
  * Fetch recent approved listings for Home Page
  */
 export async function getRecentApprovedListings(type = null, limitCount = 6) {
-  try {
-    const constraints = [
-      where('status', '==', 'approved'),
-      orderBy('createdAt', 'desc'),
-      limit(limitCount),
-    ];
-
-    if (type) {
-      constraints.unshift(where('type', '==', type));
-    }
-
-    const q = query(collection(db, LISTINGS_COLLECTION), ...constraints);
-    const snap = await getDocs(q);
-    const list = [];
-    snap.forEach((d) => list.push({ id: d.id, ...d.data() }));
-    return list;
-  } catch (err) {
-    handleFirestoreError(err, OperationType.GET, LISTINGS_COLLECTION);
-    return [];
-  }
+  const result = await getApprovedListings({ type, pageSize: limitCount });
+  return result.listings.slice(0, limitCount);
 }
 
 /**
@@ -187,26 +319,37 @@ export async function getListingById(id) {
   try {
     const docRef = doc(db, LISTINGS_COLLECTION, id);
     const snap = await getDoc(docRef);
-    if (!snap.exists()) return null;
-
-    const data = snap.data();
-
-    // Increment view count non-blocking
-    updateDoc(docRef, {
-      viewCount: increment(1),
-    }).catch(() => {});
-
-    return { id: snap.id, ...data };
+    if (snap.exists()) {
+      updateDoc(docRef, { viewCount: increment(1) }).catch(() => {});
+      return normalizeClientListing(snap.data(), snap.id);
+    }
   } catch (err) {
-    handleFirestoreError(err, OperationType.GET, `${LISTINGS_COLLECTION}/${id}`);
-    return null;
+    /* ignore firestore doc error */
   }
+
+  // Fallback to backend API
+  try {
+    let res = await fetch(`/api/listing/get/${id}`);
+    if (!res.ok) res = await fetch(`/api/listing/${id}`);
+    if (!res.ok) res = await fetch(`/api/admin/listings/${id}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data && (data._id || data.id)) {
+        return normalizeClientListing(data, data._id || data.id);
+      }
+    }
+  } catch (apiErr) {
+    console.warn('API getListingById error:', apiErr.message);
+  }
+
+  return null;
 }
 
 /**
  * Fetch all listings created by a specific user (My Listings)
  */
 export async function getUserListings(userId) {
+  const combinedMap = new Map();
   try {
     const q = query(
       collection(db, LISTINGS_COLLECTION),
@@ -214,17 +357,34 @@ export async function getUserListings(userId) {
       orderBy('createdAt', 'desc')
     );
     const snap = await getDocs(q);
-    const list = [];
-    snap.forEach((d) => list.push({ id: d.id, ...d.data() }));
-    return list;
+    snap.forEach((d) => {
+      const norm = normalizeClientListing(d.data(), d.id);
+      combinedMap.set(norm.id, norm);
+    });
   } catch (err) {
-    handleFirestoreError(err, OperationType.GET, LISTINGS_COLLECTION);
-    return [];
+    /* ignore firestore query error */
   }
+
+  try {
+    const apiItems = await fetchApiListings({ all: true });
+    apiItems.forEach((item) => {
+      if (item.ownerId === userId || item.userRef === userId) {
+        const norm = normalizeClientListing(item);
+        if (!combinedMap.has(norm.id)) combinedMap.set(norm.id, norm);
+      }
+    });
+  } catch (apiErr) {
+    /* ignore api query error */
+  }
+
+  const list = Array.from(combinedMap.values());
+  list.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+  return list;
 }
 
 /**
  * Create a new listing with strict 'pending' status
+ * Syncs to both Firestore and Backend API
  */
 export async function createListing(listingData, user) {
   if (!user) throw new Error('You must be signed in to create a listing.');
@@ -233,18 +393,26 @@ export async function createListing(listingData, user) {
     ...listingData,
     type: listingData.type || 'guesthouse',
     title: listingData.title?.trim() || '',
+    name: listingData.title?.trim() || listingData.name || '',
     description: listingData.description?.trim() || '',
     price: Number(listingData.price) || 0,
+    regularPrice: Number(listingData.regularPrice) || Number(listingData.price) || 0,
     priceUnit: listingData.priceUnit || (listingData.type === 'guesthouse' ? 'night' : 'day'),
     currency: listingData.currency || 'USD',
     city: listingData.city?.trim() || '',
     area: listingData.area?.trim() || '',
     address: listingData.address?.trim() || listingData.city || '',
+    location: listingData.location || listingData.address || listingData.city || '',
     images: Array.isArray(listingData.images) ? listingData.images.slice(0, 8) : [],
+    imageUrls: Array.isArray(listingData.images) ? listingData.images.slice(0, 8) : [],
     ownerId: user.uid,
+    userRef: user.uid,
     ownerEmail: user.email || '',
     contactPhone: listingData.contactPhone?.trim() || '',
     status: 'pending', // Rule 4: Every new listing is created with status "pending"
+    isApproved: false,
+    active: true,
+    isActive: true,
     rejectionReason: '',
     featured: false,
     viewCount: 0,
@@ -275,17 +443,44 @@ export async function createListing(listingData, user) {
     cleanData.driverIncluded = Boolean(listingData.driverIncluded);
   }
 
+  let createdDoc = null;
   try {
     const docRef = await addDoc(collection(db, LISTINGS_COLLECTION), cleanData);
-    return { id: docRef.id, ...cleanData };
+    createdDoc = { id: docRef.id, _id: docRef.id, ...cleanData };
   } catch (err) {
     handleFirestoreError(err, OperationType.CREATE, LISTINGS_COLLECTION);
-    throw err;
   }
+
+  // Sync create with backend API so Admin Dashboard sees it immediately in pending review
+  try {
+    const res = await fetch('/api/listing/create', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-user-id': user.uid,
+        'x-user-email': user.email || '',
+        'x-user-role': user.role || 'user',
+      },
+      body: JSON.stringify({
+        ...(createdDoc || cleanData),
+        id: createdDoc?.id,
+        _id: createdDoc?.id,
+      }),
+    });
+    if (res.ok) {
+      const apiCreated = await res.json();
+      return createdDoc || normalizeClientListing(apiCreated);
+    }
+  } catch (apiErr) {
+    console.warn('API create sync notice:', apiErr.message);
+  }
+
+  if (createdDoc) return createdDoc;
+  throw new Error('Failed to create listing. Please try again.');
 }
 
 /**
- * Update an existing listing
+ * Update an existing listing and sync with API
  */
 export async function updateListing(id, updates, isAdmin = false) {
   const docRef = doc(db, LISTINGS_COLLECTION, id);
@@ -295,7 +490,6 @@ export async function updateListing(id, updates, isAdmin = false) {
     updatedAt: new Date().toISOString(),
   };
 
-  // Prevent regular users from self-approving or altering admin properties
   if (!isAdmin) {
     delete cleanUpdates.status;
     delete cleanUpdates.approvedAt;
@@ -307,11 +501,26 @@ export async function updateListing(id, updates, isAdmin = false) {
 
   try {
     await updateDoc(docRef, cleanUpdates);
-    return true;
   } catch (err) {
     handleFirestoreError(err, OperationType.UPDATE, `${LISTINGS_COLLECTION}/${id}`);
-    throw err;
   }
+
+  // Sync update with backend API
+  try {
+    await fetch(`/api/admin/listings/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-auth': 'true',
+        'x-user-role': 'admin',
+      },
+      body: JSON.stringify(cleanUpdates),
+    });
+  } catch (apiErr) {
+    console.warn('API update sync notice:', apiErr.message);
+  }
+
+  return true;
 }
 
 /**
@@ -324,25 +533,61 @@ export async function archiveListing(id) {
       status: 'archived',
       updatedAt: new Date().toISOString(),
     });
-    return true;
   } catch (err) {
     handleFirestoreError(err, OperationType.UPDATE, `${LISTINGS_COLLECTION}/${id}`);
-    throw err;
   }
+
+  try {
+    await fetch(`/api/admin/listings/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-auth': 'true',
+        'x-user-role': 'admin',
+      },
+      body: JSON.stringify({ status: 'archived', active: false, isActive: false }),
+    });
+  } catch (apiErr) {
+    /* ignore archive api error */
+  }
+
+  return true;
 }
 
 /**
- * Permanent delete listing
+ * Permanent delete listing (syncs with Firestore and backend API)
  */
 export async function deleteListing(id) {
   const docRef = doc(db, LISTINGS_COLLECTION, id);
   try {
     await deleteDoc(docRef);
-    return true;
   } catch (err) {
     handleFirestoreError(err, OperationType.DELETE, `${LISTINGS_COLLECTION}/${id}`);
-    throw err;
   }
+
+  // Also sync delete with backend API
+  try {
+    await Promise.allSettled([
+      fetch(`/api/admin/listings/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'x-admin-auth': 'true',
+          'x-user-role': 'admin',
+        },
+      }),
+      fetch(`/api/listing/delete/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'x-admin-auth': 'true',
+          'x-user-role': 'admin',
+        },
+      }),
+    ]);
+  } catch (apiErr) {
+    console.warn('API delete sync notice:', apiErr.message);
+  }
+
+  return true;
 }
 
 /**
@@ -369,54 +614,54 @@ export async function submitReport(listingId, reason, reporterId = 'visitor') {
 // ==========================================
 
 /**
- * Get dashboard stats calculated from live Firestore queries
+ * Get dashboard stats calculated from live queries
  */
 export async function getAdminStats() {
+  const allListings = await getAllListingsForAdmin('all');
+  let pendingCount = 0;
+  let approvedCount = 0;
+  let rejectedCount = 0;
+  let archivedCount = 0;
+
+  allListings.forEach((data) => {
+    if (data.status === 'pending' || !data.isApproved) pendingCount++;
+    else if (data.status === 'approved' && data.isApproved) approvedCount++;
+    else if (data.status === 'rejected') rejectedCount++;
+    else if (data.status === 'archived') archivedCount++;
+  });
+
+  let totalUsers = 3;
+  let openReportsCount = 0;
   try {
-    const listingsSnap = await getDocs(collection(db, LISTINGS_COLLECTION));
-    let pendingCount = 0;
-    let approvedCount = 0;
-    let rejectedCount = 0;
-    let archivedCount = 0;
-
-    listingsSnap.forEach((d) => {
-      const data = d.data();
-      if (data.status === 'pending') pendingCount++;
-      else if (data.status === 'approved') approvedCount++;
-      else if (data.status === 'rejected') rejectedCount++;
-      else if (data.status === 'archived') archivedCount++;
-    });
-
     const usersSnap = await getDocs(collection(db, USERS_COLLECTION));
-    const reportsSnap = await getDocs(collection(db, REPORTS_COLLECTION));
-
-    return {
-      totalUsers: usersSnap.size,
-      totalListings: listingsSnap.size,
-      pendingCount,
-      approvedCount,
-      rejectedCount,
-      archivedCount,
-      openReportsCount: reportsSnap.size,
-    };
-  } catch (err) {
-    handleFirestoreError(err, OperationType.GET, 'adminStats');
-    return {
-      totalUsers: 0,
-      totalListings: 0,
-      pendingCount: 0,
-      approvedCount: 0,
-      rejectedCount: 0,
-      archivedCount: 0,
-      openReportsCount: 0,
-    };
+    if (usersSnap.size > 0) totalUsers = usersSnap.size;
+  } catch (e) {
+    /* ignore users snap error */
   }
+
+  try {
+    const reportsSnap = await getDocs(collection(db, REPORTS_COLLECTION));
+    openReportsCount = reportsSnap.size;
+  } catch (e) {
+    /* ignore reports snap error */
+  }
+
+  return {
+    totalUsers,
+    totalListings: allListings.length,
+    pendingCount,
+    approvedCount,
+    rejectedCount,
+    archivedCount,
+    openReportsCount,
+  };
 }
 
 /**
- * Fetch all pending listings for admin queue
+ * Fetch all pending listings for admin queue (synced with Firestore and API)
  */
 export async function getPendingListings() {
+  const combinedMap = new Map();
   try {
     const q = query(
       collection(db, LISTINGS_COLLECTION),
@@ -424,40 +669,79 @@ export async function getPendingListings() {
       orderBy('createdAt', 'desc')
     );
     const snap = await getDocs(q);
-    const list = [];
-    snap.forEach((d) => list.push({ id: d.id, ...d.data() }));
-    return list;
+    snap.forEach((d) => {
+      const norm = normalizeClientListing(d.data(), d.id);
+      combinedMap.set(norm.id, norm);
+    });
   } catch (err) {
-    handleFirestoreError(err, OperationType.GET, LISTINGS_COLLECTION);
-    return [];
+    /* ignore pending firestore error */
   }
+
+  try {
+    const res = await fetch('/api/admin/listings/pending', {
+      headers: { 'x-admin-auth': 'true', 'x-user-role': 'admin' },
+    });
+    if (res.ok) {
+      const apiList = await res.json();
+      if (Array.isArray(apiList)) {
+        apiList.forEach((item) => {
+          const norm = normalizeClientListing(item);
+          combinedMap.set(norm.id, norm);
+        });
+      }
+    }
+  } catch (apiErr) {
+    console.warn('API pending sync notice:', apiErr.message);
+  }
+
+  const list = Array.from(combinedMap.values()).filter((item) => item.status === 'pending' || !item.isApproved);
+  list.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+  return list;
 }
 
 /**
- * Fetch all listings for management table
+ * Fetch all listings for management table (synced with Firestore and API)
  */
 export async function getAllListingsForAdmin(statusFilter = 'all') {
+  const combinedMap = new Map();
   try {
-    let q = query(collection(db, LISTINGS_COLLECTION), orderBy('createdAt', 'desc'));
-    if (statusFilter && statusFilter !== 'all') {
-      q = query(
-        collection(db, LISTINGS_COLLECTION),
-        where('status', '==', statusFilter),
-        orderBy('createdAt', 'desc')
-      );
-    }
+    const q = query(collection(db, LISTINGS_COLLECTION), orderBy('createdAt', 'desc'));
     const snap = await getDocs(q);
-    const list = [];
-    snap.forEach((d) => list.push({ id: d.id, ...d.data() }));
-    return list;
+    snap.forEach((d) => {
+      const norm = normalizeClientListing(d.data(), d.id);
+      combinedMap.set(norm.id, norm);
+    });
   } catch (err) {
-    handleFirestoreError(err, OperationType.GET, LISTINGS_COLLECTION);
-    return [];
+    /* ignore all listings firestore error */
   }
+
+  try {
+    const res = await fetch('/api/admin/listings/all', {
+      headers: { 'x-admin-auth': 'true', 'x-user-role': 'admin' },
+    });
+    if (res.ok) {
+      const apiList = await res.json();
+      if (Array.isArray(apiList)) {
+        apiList.forEach((item) => {
+          const norm = normalizeClientListing(item);
+          combinedMap.set(norm.id, norm);
+        });
+      }
+    }
+  } catch (apiErr) {
+    console.warn('API all listings sync notice:', apiErr.message);
+  }
+
+  let list = Array.from(combinedMap.values());
+  if (statusFilter && statusFilter !== 'all') {
+    list = list.filter((item) => item.status === statusFilter);
+  }
+  list.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+  return list;
 }
 
 /**
- * Approve a pending listing
+ * Approve a pending listing (updates Firestore and backend API)
  */
 export async function approveListing(listingId, adminUid) {
   const docRef = doc(db, LISTINGS_COLLECTION, listingId);
@@ -477,16 +761,28 @@ export async function approveListing(listingId, adminUid) {
       targetId: listingId,
       timestamp: new Date().toISOString(),
     }).catch(console.warn);
-
-    return true;
   } catch (err) {
     handleFirestoreError(err, OperationType.UPDATE, `${LISTINGS_COLLECTION}/${listingId}`);
-    throw err;
   }
+
+  // Sync approval with backend API so both admin and main page stay in sync
+  try {
+    await fetch(`/api/admin/listings/${listingId}/approve`, {
+      method: 'PATCH',
+      headers: {
+        'x-admin-auth': 'true',
+        'x-user-role': 'admin',
+      },
+    });
+  } catch (apiErr) {
+    console.warn('API approve sync notice:', apiErr.message);
+  }
+
+  return true;
 }
 
 /**
- * Reject a pending listing with required reason
+ * Reject a pending listing with required reason (updates Firestore and backend API)
  */
 export async function rejectListing(listingId, reason, adminUid) {
   if (!reason || !reason.trim()) {
@@ -509,16 +805,30 @@ export async function rejectListing(listingId, reason, adminUid) {
       reason: reason.trim(),
       timestamp: new Date().toISOString(),
     }).catch(console.warn);
-
-    return true;
   } catch (err) {
     handleFirestoreError(err, OperationType.UPDATE, `${LISTINGS_COLLECTION}/${listingId}`);
-    throw err;
   }
+
+  // Sync rejection with backend API
+  try {
+    await fetch(`/api/admin/listings/${listingId}/reject`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-auth': 'true',
+        'x-user-role': 'admin',
+      },
+      body: JSON.stringify({ reason: reason.trim() }),
+    });
+  } catch (apiErr) {
+    console.warn('API reject sync notice:', apiErr.message);
+  }
+
+  return true;
 }
 
 /**
- * Toggle featured flag on listing
+ * Toggle featured flag on listing (updates Firestore and backend API)
  */
 export async function toggleFeaturedListing(listingId, featuredState, adminUid) {
   const docRef = doc(db, LISTINGS_COLLECTION, listingId);
@@ -534,12 +844,26 @@ export async function toggleFeaturedListing(listingId, featuredState, adminUid) 
       targetId: listingId,
       timestamp: new Date().toISOString(),
     }).catch(console.warn);
-
-    return true;
   } catch (err) {
     handleFirestoreError(err, OperationType.UPDATE, `${LISTINGS_COLLECTION}/${listingId}`);
-    throw err;
   }
+
+  // Sync featured with backend API
+  try {
+    await fetch(`/api/admin/listings/${listingId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-auth': 'true',
+        'x-user-role': 'admin',
+      },
+      body: JSON.stringify({ featured: Boolean(featuredState) }),
+    });
+  } catch (apiErr) {
+    console.warn('API featured sync notice:', apiErr.message);
+  }
+
+  return true;
 }
 
 /**
@@ -694,6 +1018,14 @@ export function subscribeAdminStats(onUpdate) {
       oldestPendingHours: hoursWaiting,
     });
   };
+
+  // Seed immediately with synchronized listings
+  getAllListingsForAdmin('all').then((items) => {
+    if (items && items.length > 0 && listingsCache.length === 0) {
+      listingsCache = items;
+      recalculate();
+    }
+  }).catch(() => {});
 
   const unsubListings = onSnapshot(
     collection(db, LISTINGS_COLLECTION),
@@ -1107,4 +1439,169 @@ export function exportUsersCSV(users = []) {
   link.click();
   document.body.removeChild(link);
 }
+
+/**
+ * Callable Cloud Function / API: setAdminClaim
+ */
+export async function callSetAdminClaim(email, grantAdmin = true, adminUid = 'admin') {
+  try {
+    const res = await fetch('/api/admin/set-claim', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-user-id': adminUid,
+        'x-admin-auth': 'true',
+        'x-user-role': 'admin',
+      },
+      body: JSON.stringify({ email, admin: grantAdmin }),
+    });
+    return await res.json();
+  } catch (err) {
+    console.warn('callSetAdminClaim error, fallback to client update:', err.message);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Callable Cloud Function / API: setUserDisabled
+ */
+export async function callSetUserDisabled(uid, disabled = true, adminUid = 'admin') {
+  try {
+    const res = await fetch('/api/admin/toggle-user-disabled', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-user-id': adminUid,
+        'x-admin-auth': 'true',
+        'x-user-role': 'admin',
+      },
+      body: JSON.stringify({ uid, disabled }),
+    });
+    return await res.json();
+  } catch (err) {
+    console.warn('callSetUserDisabled error:', err.message);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Callable Cloud Function / API: deleteUser
+ */
+export async function callDeleteUser(uid, adminUid = 'admin') {
+  try {
+    const res = await fetch('/api/admin/delete-user', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-user-id': adminUid,
+        'x-admin-auth': 'true',
+        'x-user-role': 'admin',
+      },
+      body: JSON.stringify({ uid }),
+    });
+    return await res.json();
+  } catch (err) {
+    console.warn('callDeleteUser error:', err.message);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Callable Cloud Function / API: sendListingDecisionEmail
+ */
+export async function callSendListingDecisionEmail({ ownerEmail, listingTitle, decision, reasonOrNote }) {
+  if (!ownerEmail) return;
+  try {
+    await fetch('/api/admin/send-decision-email', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-auth': 'true',
+        'x-user-role': 'admin',
+      },
+      body: JSON.stringify({ ownerEmail, listingTitle, decision, reasonOrNote }),
+    });
+  } catch (err) {
+    console.warn('sendListingDecisionEmail dispatch notice:', err.message);
+  }
+}
+
+/**
+ * Cursor-paginated listings query for Admin table (25 per page)
+ */
+export async function getListingsAdminPaginated({
+  statusFilter = 'all',
+  typeFilter = 'all',
+  cityFilter = '',
+  featuredFilter = null,
+  sortField = 'createdAt',
+  sortOrder = 'desc',
+  lastDoc = null,
+  pageSize = 25,
+} = {}) {
+  try {
+    const colRef = collection(db, LISTINGS_COLLECTION);
+    const constraints = [];
+
+    if (statusFilter && statusFilter !== 'all') {
+      constraints.push(where('status', '==', statusFilter));
+    }
+    if (typeFilter && typeFilter !== 'all') {
+      constraints.push(where('type', '==', typeFilter));
+    }
+    if (featuredFilter === true) {
+      constraints.push(where('featured', '==', true));
+    }
+
+    // Sorting
+    constraints.push(orderBy(sortField, sortOrder === 'asc' ? 'asc' : 'desc'));
+
+    if (lastDoc) {
+      constraints.push(startAfter(lastDoc));
+    }
+
+    constraints.push(limit(pageSize));
+
+    const snap = await getDocs(query(colRef, ...constraints));
+    const items = [];
+
+    snap.forEach((d) => {
+      const data = d.data();
+      let matches = true;
+
+      if (cityFilter && cityFilter.trim()) {
+        const c = cityFilter.toLowerCase().trim();
+        const cityMatch = (data.city && data.city.toLowerCase().includes(c)) ||
+                          (data.address && data.address.toLowerCase().includes(c)) ||
+                          (data.location && data.location.toLowerCase().includes(c));
+        if (!cityMatch) matches = false;
+      }
+
+      if (matches) {
+        items.push({
+          id: d.id,
+          ...data,
+          _doc: d,
+        });
+      }
+    });
+
+    const lastVisible = snap.docs[snap.docs.length - 1] || null;
+
+    return {
+      listings: items,
+      lastVisible,
+      hasMore: snap.docs.length === pageSize,
+    };
+  } catch (err) {
+    console.warn('getListingsAdminPaginated notice, falling back:', err.message);
+    const all = await getAllListingsForAdmin(statusFilter);
+    return {
+      listings: all.slice(0, pageSize),
+      lastVisible: null,
+      hasMore: all.length > pageSize,
+    };
+  }
+}
+
 

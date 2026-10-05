@@ -46,8 +46,18 @@ export default function SignIn() {
         email: user.email,
         displayName: user.displayName || user.email.split('@')[0],
         avatar: user.photoURL || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png',
-        isAdmin: user.email?.toLowerCase() === 'jossvision11@gmail.com',
-        role: user.email?.toLowerCase() === 'jossvision11@gmail.com' ? 'admin' : 'user',
+        isAdmin:
+          user.email?.toLowerCase() === 'jossvision11@gmail.com' ||
+          user.email?.toLowerCase() === 'joepatriot30@gmail.com' ||
+          user.email?.toLowerCase() === 'admin@chento100.com' ||
+          Boolean(user.email?.toLowerCase().includes('admin')),
+        role:
+          user.email?.toLowerCase() === 'jossvision11@gmail.com' ||
+          user.email?.toLowerCase() === 'joepatriot30@gmail.com' ||
+          user.email?.toLowerCase() === 'admin@chento100.com' ||
+          user.email?.toLowerCase().includes('admin')
+            ? 'admin'
+            : 'user',
         emailVerified: user.emailVerified,
       };
 

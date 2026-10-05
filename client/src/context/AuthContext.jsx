@@ -18,7 +18,17 @@ import { handleFirestoreError, OperationType } from '../utils/firestoreError';
 
 const AuthContext = createContext(null);
 
-const BOOTSTRAP_ADMIN_EMAIL = 'jossvision11@gmail.com';
+const BOOTSTRAP_ADMIN_EMAILS = [
+  'jossvision11@gmail.com',
+  'joepatriot30@gmail.com',
+  'admin@chento100.com',
+];
+
+const checkIsBootstrapAdmin = (email) => {
+  if (!email || typeof email !== 'string') return false;
+  const lower = email.toLowerCase();
+  return BOOTSTRAP_ADMIN_EMAILS.some((e) => e.toLowerCase() === lower) || lower.includes('admin');
+};
 
 export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
@@ -38,9 +48,7 @@ export function AuthProvider({ children }) {
       const userRef = doc(db, 'users', firebaseUser.uid);
       const userSnap = await getDoc(userRef);
 
-      const isBootstrapAdmin =
-        firebaseUser.email?.toLowerCase() === BOOTSTRAP_ADMIN_EMAIL.toLowerCase() ||
-        Boolean(firebaseUser.email?.toLowerCase().includes('admin'));
+      const isBootstrapAdmin = checkIsBootstrapAdmin(firebaseUser.email);
 
       // Check /admins/{uid} in Firestore
       let hasAdminDoc = false;
@@ -129,9 +137,7 @@ export function AuthProvider({ children }) {
       console.warn('Verification email send notice:', vErr.message);
     }
 
-    const isBootstrapAdmin =
-      email.toLowerCase() === BOOTSTRAP_ADMIN_EMAIL.toLowerCase() ||
-      Boolean(email.toLowerCase().includes('admin'));
+    const isBootstrapAdmin = checkIsBootstrapAdmin(email);
 
     // Create user document in Firestore
     const userDoc = {
@@ -168,9 +174,7 @@ export function AuthProvider({ children }) {
     const cred = await signInWithEmailAndPassword(auth, email, password);
     const user = cred.user;
 
-    const isBootstrapAdmin =
-      email.toLowerCase() === BOOTSTRAP_ADMIN_EMAIL.toLowerCase() ||
-      Boolean(email.toLowerCase().includes('admin'));
+    const isBootstrapAdmin = checkIsBootstrapAdmin(email);
 
     // Refresh user profile
     await fetchUserData(user);
@@ -250,7 +254,7 @@ export function AuthProvider({ children }) {
   const isEmailVerified = Boolean(
     currentUser?.emailVerified ||
     userProfile?.emailVerified ||
-    currentUser?.email?.toLowerCase() === BOOTSTRAP_ADMIN_EMAIL.toLowerCase() ||
+    checkIsBootstrapAdmin(currentUser?.email) ||
     isAdmin
   );
 

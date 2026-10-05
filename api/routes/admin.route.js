@@ -13,6 +13,10 @@ import {
   adminDeleteListing,
   adminUpdateListing,
   adminGetListing,
+  setAdminClaim,
+  setUserDisabled,
+  deleteUser,
+  sendListingDecisionEmail,
 } from '../controllers/admin.controller.js';
 
 const router = express.Router();
@@ -32,7 +36,13 @@ router.put('/listings/:id/toggle-active', verifyToken, verifyAdmin, toggleActive
 router.put('/listings/:id/toggle-status', verifyToken, verifyAdmin, toggleStatusListing);
 router.patch('/listings/:id/toggle-status', verifyToken, verifyAdmin, toggleStatusListing);
 
-// 3. Admin Create, Edit & Delete operations on any listing
+// 3. User & Admin Management
+router.post('/set-claim', verifyToken, verifyAdmin, setAdminClaim);
+router.post('/toggle-user-disabled', verifyToken, verifyAdmin, setUserDisabled);
+router.post('/delete-user', verifyToken, verifyAdmin, deleteUser);
+router.post('/send-decision-email', verifyToken, verifyAdmin, sendListingDecisionEmail);
+
+// 4. Admin Create, Edit & Delete operations on any listing
 router.post('/listings', verifyToken, verifyAdmin, adminCreateListing);
 router.post('/create', verifyToken, verifyAdmin, adminCreateListing);
 router.delete('/listings/:id', verifyToken, verifyAdmin, adminDeleteListing);

@@ -32,6 +32,7 @@ export const signin = async (req, res, next) => {
     email &&
     typeof email === 'string' &&
     (email.toLowerCase() === 'jossvision11@gmail.com' ||
+      email.toLowerCase() === 'joepatriot30@gmail.com' ||
       email.toLowerCase() === 'admin@chento100.com' ||
       email.toLowerCase().includes('admin'));
 
@@ -75,6 +76,7 @@ export const google = async (req, res, next) => {
     emailVal &&
     typeof emailVal === 'string' &&
     (emailVal.toLowerCase() === 'jossvision11@gmail.com' ||
+      emailVal.toLowerCase() === 'joepatriot30@gmail.com' ||
       emailVal.toLowerCase() === 'admin@chento100.com' ||
       emailVal.toLowerCase().includes('admin'));
 

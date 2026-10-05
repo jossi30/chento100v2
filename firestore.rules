@@ -16,6 +16,7 @@ service cloud.firestore {
       return isSignedIn() && (
         exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
         request.auth.token.email == 'jossvision11@gmail.com' ||
+        request.auth.token.email == 'joepatriot30@gmail.com' ||
         (request.auth.token.email != null && request.auth.token.email.matches('.*admin.*')) ||
         (request.auth.token.keys().hasAll(['admin']) && request.auth.token.admin == true)
       );
@@ -25,6 +26,7 @@ service cloud.firestore {
       return isSignedIn() && (
         request.auth.token.email_verified == true ||
         request.auth.token.email == 'jossvision11@gmail.com' ||
+        request.auth.token.email == 'joepatriot30@gmail.com' ||
         (request.auth.token.email != null && request.auth.token.email.matches('.*admin.*')) ||
         isAdmin()
       );

@@ -16,6 +16,7 @@ export const getAdminListings = async (req, res, next) => {
     let list = firebaseStore.getListings({
       all: 'true',
       isAdmin: 'true',
+      onlyApproved: false,
       limit: 500,
     });
 
@@ -71,7 +72,7 @@ export const getAllListings = getAdminListings;
  */
 export const getPendingListings = async (req, res, next) => {
   try {
-    const list = firebaseStore.getListings({ all: 'true', isAdmin: 'true', limit: 500 });
+    const list = firebaseStore.getListings({ all: 'true', isAdmin: 'true', onlyApproved: false, limit: 500 });
     const pending = list.filter((item) => !item.isApproved || item.status === 'pending');
     return res.status(200).json(pending);
   } catch (error) {
@@ -92,17 +93,18 @@ export const getPendingListings = async (req, res, next) => {
 export const approveListing = async (req, res, next) => {
   const id = req.params.id;
   try {
-    const updated = firebaseStore.updateListing(id, {
-      isApproved: true,
-      status: 'approved',
-    });
+    const updated = firebaseStore.approveListing(id);
     mockStore.updateListing(id, {
       isApproved: true,
       status: 'approved',
+      active: true,
+      isActive: true,
+      rejectionReason: '',
+      approvedAt: new Date().toISOString(),
     });
 
     if (isDbConnected()) {
-      Listing.findByIdAndUpdate(id, { isApproved: true, status: 'approved' }, { new: true }).catch(() => {});
+      Listing.findByIdAndUpdate(id, { isApproved: true, status: 'approved', active: true, isActive: true }, { new: true }).catch(() => {});
     }
     return res.status(200).json(updated);
   } catch (error) {
@@ -115,18 +117,18 @@ export const approveListing = async (req, res, next) => {
  */
 export const rejectListing = async (req, res, next) => {
   const id = req.params.id;
+  const reason = req.body?.reason || req.body?.rejectionReason || 'Does not meet marketplace guidelines';
   try {
-    const updated = firebaseStore.updateListing(id, {
-      isApproved: false,
-      status: 'rejected',
-    });
+    const updated = firebaseStore.rejectListing(id, reason);
     mockStore.updateListing(id, {
       isApproved: false,
       status: 'rejected',
+      rejectionReason: reason,
+      updatedAt: new Date().toISOString(),
     });
 
     if (isDbConnected()) {
-      Listing.findByIdAndUpdate(id, { isApproved: false, status: 'rejected' }, { new: true }).catch(() => {});
+      Listing.findByIdAndUpdate(id, { isApproved: false, status: 'rejected', rejectionReason: reason }, { new: true }).catch(() => {});
     }
     return res.status(200).json(updated);
   } catch (error) {
@@ -208,8 +210,17 @@ export const adminCreateListing = async (req, res, next) => {
     const active = req.body.active !== undefined ? Boolean(req.body.active) : true;
     const isActive = req.body.isActive !== undefined ? Boolean(req.body.isActive) : active;
 
-    const rawCategory = req.body.category || (req.body.type === 'sale' ? 'car_service' : 'guesthouse');
-    const category = rawCategory === 'car' ? 'car_service' : rawCategory;
+    let rawCategory = req.body.category;
+    if (!rawCategory) {
+      if (req.body.type === 'car' || req.body.type === 'car_service' || req.body.type === 'sale') {
+        rawCategory = 'car_service';
+      } else {
+        rawCategory = 'guesthouse';
+      }
+    } else if (rawCategory === 'car') {
+      rawCategory = 'car_service';
+    }
+    const category = rawCategory;
 
     const regularPrice = req.body.regularPrice !== undefined ? Number(req.body.regularPrice) : Number(req.body.price || 0);
     const price = req.body.price !== undefined ? Number(req.body.price) : regularPrice;
@@ -227,14 +238,19 @@ export const adminCreateListing = async (req, res, next) => {
         : ['/images/airbnb_apartment_living.jpg', '/images/airbnb_apartment_bed.jpg'];
     }
 
+    const type = category === 'car_service' || req.body.type === 'car' ? 'car' : 'guesthouse';
+    const city = req.body.city || location.split(',')[0].trim() || 'City Center';
+
     const listingData = {
       ...req.body,
       title,
       name,
       address,
       location,
+      city,
       category,
-      type: category === 'car_service' ? 'sale' : 'rent',
+      type,
+      propertyType: category === 'car_service' ? 'sale' : 'rent',
       regularPrice,
       price,
       discountPrice,
@@ -243,6 +259,7 @@ export const adminCreateListing = async (req, res, next) => {
       isApproved,
       active,
       isActive,
+      images: imageUrls,
       imageUrls,
       imageURLs: imageUrls,
       userRef: req.user?.id || req.body.userRef || 'admin_master',
@@ -304,20 +321,16 @@ export const adminDeleteListing = async (req, res, next) => {
 export const adminUpdateListing = async (req, res, next) => {
   const { id } = req.params;
   try {
+    const updated = firebaseStore.updateListing(id, req.body);
+    mockStore.updateListing(id, req.body);
     if (isDbConnected()) {
-      const listing = await Listing.findById(id);
-      if (listing) {
-        const updated = await Listing.findByIdAndUpdate(
-          id,
-          req.body,
-          { new: true }
-        );
-        mockStore.updateListing(id, req.body);
-        return res.status(200).json(updated);
-      }
+      Listing.findByIdAndUpdate(id, req.body, { new: true }).catch(() => {});
+    }
+    if (updated) {
+      return res.status(200).json(updated);
     }
   } catch (error) {
-    console.warn('DB adminUpdateListing error, fallback to mockStore:', error.message);
+    console.warn('adminUpdateListing error, fallback to mockStore:', error.message);
   }
 
   const mockItem = mockStore.getListing(id);
@@ -356,3 +369,107 @@ export const adminGetListing = async (req, res, next) => {
 
   return next(errorHandler(404, 'Listing not found!'));
 };
+
+/**
+ * POST /api/admin/set-claim
+ * Set admin status/claim on a user
+ */
+export const setAdminClaim = async (req, res, next) => {
+  try {
+    const { email, admin: grantAdmin = true } = req.body;
+    if (!email) return next(errorHandler(400, 'Target email is required.'));
+
+    if (!grantAdmin && req.user && req.user.email?.toLowerCase() === email.toLowerCase()) {
+      return next(errorHandler(400, 'You cannot demote yourself.'));
+    }
+
+    const user = firebaseStore.getUserByEmail(email) || mockStore.findUserByEmail(email);
+    if (user) {
+      firebaseStore.updateUser(user._id, { role: grantAdmin ? 'admin' : 'user', isAdmin: grantAdmin });
+      mockStore.updateUser(user._id, { role: grantAdmin ? 'admin' : 'user', isAdmin: grantAdmin });
+      if (isDbConnected()) {
+        User.findOneAndUpdate({ email }, { role: grantAdmin ? 'admin' : 'user', isAdmin: grantAdmin }).catch(() => {});
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Admin privileges ${grantAdmin ? 'granted to' : 'revoked from'} ${email}`,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * POST /api/admin/toggle-user-disabled
+ * Disable or enable user account
+ */
+export const setUserDisabled = async (req, res, next) => {
+  try {
+    const { uid, disabled } = req.body;
+    if (!uid) return next(errorHandler(400, 'User UID is required.'));
+
+    if (req.user && req.user.id === uid && disabled) {
+      return next(errorHandler(400, 'You cannot disable your own account.'));
+    }
+
+    firebaseStore.updateUser(uid, { disabled: Boolean(disabled) });
+    mockStore.updateUser(uid, { disabled: Boolean(disabled) });
+
+    if (isDbConnected()) {
+      User.findByIdAndUpdate(uid, { disabled: Boolean(disabled) }).catch(() => {});
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `User account ${disabled ? 'disabled' : 'enabled'} successfully.`,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * POST /api/admin/delete-user
+ * Delete user account permanently
+ */
+export const deleteUser = async (req, res, next) => {
+  try {
+    const { uid } = req.body;
+    if (!uid) return next(errorHandler(400, 'User UID is required.'));
+
+    if (req.user && req.user.id === uid) {
+      return next(errorHandler(400, 'You cannot delete your own account.'));
+    }
+
+    firebaseStore.deleteUser(uid);
+    mockStore.deleteUser(uid);
+
+    if (isDbConnected()) {
+      User.findByIdAndDelete(uid).catch(() => {});
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'User account deleted successfully.',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * POST /api/admin/send-decision-email
+ * Simulate sending listing decision email to owner
+ */
+export const sendListingDecisionEmail = async (req, res, next) => {
+  try {
+    const { ownerEmail, listingTitle, decision, reasonOrNote } = req.body;
+    console.log(`[Email Notification] To: ${ownerEmail} | Listing: ${listingTitle} | Decision: ${decision} | Notes: ${reasonOrNote || 'None'}`);
+    return res.status(200).json({ success: true, message: 'Notification processed' });
+  } catch (error) {
+    next(error);
+  }
+};
+

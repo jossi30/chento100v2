@@ -31,6 +31,19 @@ const jossUser = {
 };
 mockUsers.set(jossUser._id, jossUser);
 
+const joeUser = {
+  _id: 'user_joe_001',
+  username: 'joepatriot30',
+  email: 'joepatriot30@gmail.com',
+  password: bcryptjs.hashSync('password123', 10),
+  role: 'admin',
+  isAdmin: true,
+  avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80',
+  createdAt: new Date('2024-01-01').toISOString(),
+  updatedAt: new Date('2024-01-01').toISOString(),
+};
+mockUsers.set(joeUser._id, joeUser);
+
 // Seed initial mock guest houses & car rentals with driver (normal Airbnb apartments and regular city cars)
 const initialListings = [
   {

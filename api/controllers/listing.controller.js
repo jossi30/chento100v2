@@ -44,6 +44,7 @@ export const deleteListing = async (req, res, next) => {
     req.user.isAdmin === true ||
     req.user.role === 'admin' ||
     req.user.email === 'jossvision11@gmail.com' ||
+    req.user.email === 'joepatriot30@gmail.com' ||
     req.user.email === 'admin@chento100.com' ||
     req.headers['x-admin-auth'] === 'true' ||
     req.headers['x-user-role'] === 'admin'

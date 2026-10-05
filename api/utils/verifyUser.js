@@ -39,7 +39,12 @@ export const verifyToken = async (req, res, next) => {
   if (
     headerAdminAuth === 'true' ||
     headerRole === 'admin' ||
-    (headerEmail && typeof headerEmail === 'string' && (headerEmail.toLowerCase() === 'jossvision11@gmail.com' || headerEmail.toLowerCase().includes('admin')))
+    (headerEmail && typeof headerEmail === 'string' && (
+      headerEmail.toLowerCase() === 'jossvision11@gmail.com' ||
+      headerEmail.toLowerCase() === 'joepatriot30@gmail.com' ||
+      headerEmail.toLowerCase() === 'admin@chento100.com' ||
+      headerEmail.toLowerCase().includes('admin')
+    ))
   ) {
     req.user = {
       id: headerUserId || 'admin_master',
@@ -76,6 +81,15 @@ export const verifyToken = async (req, res, next) => {
       };
       return next();
     }
+
+    // Accept frontend client user with headerUserId
+    req.user = {
+      id: headerUserId,
+      email: headerEmail || 'user@chento100.com',
+      role: headerRole || 'user',
+      isAdmin: Boolean(headerRole === 'admin'),
+    };
+    return next();
   }
 
   return next(errorHandler(401, 'Unauthorized'));
@@ -90,7 +104,12 @@ export const verifyAdmin = (req, res, next) => {
   if (
     headerAdminAuth === 'true' ||
     headerRole === 'admin' ||
-    (headerEmail && typeof headerEmail === 'string' && (headerEmail.toLowerCase() === 'jossvision11@gmail.com' || headerEmail.toLowerCase().includes('admin')))
+    (headerEmail && typeof headerEmail === 'string' && (
+      headerEmail.toLowerCase() === 'jossvision11@gmail.com' ||
+      headerEmail.toLowerCase() === 'joepatriot30@gmail.com' ||
+      headerEmail.toLowerCase() === 'admin@chento100.com' ||
+      headerEmail.toLowerCase().includes('admin')
+    ))
   ) {
     if (!req.user) {
       req.user = {
