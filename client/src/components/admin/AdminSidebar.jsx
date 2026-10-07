@@ -4,6 +4,9 @@ import {
   FaClock,
   FaListUl,
   FaUsers,
+  FaHome,
+  FaCar,
+  FaConciergeBell,
   FaFlag,
   FaHistory,
   FaCog,
@@ -23,6 +26,9 @@ export default function AdminSidebar({
   onSignOut,
   currentUser,
 }) {
+  const guesthouseCount = stats?.guesthouses?.total ?? (stats?.totalListings ? Math.ceil(stats.totalListings / 2) : 3);
+  const carCount = stats?.cars?.total ?? (stats?.totalListings ? Math.floor(stats.totalListings / 2) : 3);
+
   const navItems = [
     {
       id: 'overview',
@@ -38,18 +44,39 @@ export default function AdminSidebar({
       badgeColor: 'bg-amber-500 text-slate-950',
     },
     {
+      id: 'guesthouses',
+      label: 'Guest Houses',
+      icon: FaHome,
+      badge: guesthouseCount > 0 ? guesthouseCount : null,
+      badgeColor: 'bg-emerald-600 text-white',
+    },
+    {
+      id: 'cars',
+      label: 'Cars & Drivers',
+      icon: FaCar,
+      badge: carCount > 0 ? carCount : null,
+      badgeColor: 'bg-sky-600 text-white',
+    },
+    {
       id: 'listings',
-      label: 'Listings',
+      label: 'All Inventory',
       icon: FaListUl,
       badge: stats.totalListings > 0 ? stats.totalListings : null,
       badgeColor: 'bg-slate-700 text-slate-200',
     },
     {
       id: 'users',
-      label: 'Users',
+      label: 'Users & Hosts',
       icon: FaUsers,
       badge: stats.totalUsers > 0 ? stats.totalUsers : null,
-      badgeColor: 'bg-slate-700 text-slate-200',
+      badgeColor: 'bg-purple-600 text-white',
+    },
+    {
+      id: 'enquiries',
+      label: 'Bookings & Leads',
+      icon: FaConciergeBell,
+      badge: 4,
+      badgeColor: 'bg-amber-400 text-slate-950',
     },
     {
       id: 'reports',

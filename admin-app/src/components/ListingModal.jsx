@@ -7,6 +7,7 @@ export default function ListingModal({
   onReject,
   onToggleActive,
   onDelete,
+  onEdit,
   actionLoading,
   isTogglingActive,
 }) {
@@ -266,6 +267,19 @@ export default function ListingModal({
             >
               Close
             </button>
+
+            {onEdit && (
+              <button
+                type='button'
+                onClick={() => {
+                  onEdit(listing);
+                  onClose();
+                }}
+                className='px-4 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-lg shadow-xs transition-colors'
+              >
+                Edit Info
+              </button>
+            )}
 
             {status === 'pending' && onReject && (
               <button

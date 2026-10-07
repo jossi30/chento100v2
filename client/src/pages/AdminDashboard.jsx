@@ -39,6 +39,13 @@ import {
   FaBars,
   FaChevronRight,
   FaInfoCircle,
+  FaWhatsapp,
+  FaBed,
+  FaBath,
+  FaConciergeBell,
+  FaCopy,
+  FaCalendarAlt,
+  FaUserTie,
 } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -72,12 +79,19 @@ import {
   callSetUserDisabled,
   callDeleteUser,
   callSendListingDecisionEmail,
+  getAdminEnquiries,
+  updateAdminEnquiry,
 } from '../services/listingService';
 
 import AdminSidebar from '../components/admin/AdminSidebar';
 import AdminToast from '../components/admin/AdminToast';
 import ImageZoomModal from '../components/admin/ImageZoomModal';
 import ReauthModal from '../components/admin/ReauthModal';
+import AdminGuesthousesTab from '../components/admin/AdminGuesthousesTab';
+import AdminCarsTab from '../components/admin/AdminCarsTab';
+import AdminUsersTab from '../components/admin/AdminUsersTab';
+import AdminEnquiriesTab from '../components/admin/AdminEnquiriesTab';
+import QuickContactModal from '../components/admin/QuickContactModal';
 import {
   rejectReasonSchema,
   requestChangesSchema,
@@ -516,7 +530,11 @@ export default function AdminDashboard() {
   );
 
   useEffect(() => {
-    if (activeTab === 'listings') {
+    if (
+      activeTab === 'listings' ||
+      activeTab === 'guesthouses' ||
+      activeTab === 'cars'
+    ) {
       loadListingsTable(true);
     }
   }, [
@@ -606,9 +624,47 @@ export default function AdminDashboard() {
   const [usersList, setUsersList] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [userStatusFilter, setUserStatusFilter] = useState('all');
+  const [userRoleFilter, setUserRoleFilter] = useState('all'); // 'all' | 'hosts' | 'users'
+  const [userSearchTerm, setUserSearchTerm] = useState('');
   const [selectedUserDetail, setSelectedUserDetail] = useState(null);
   const [userDetailIntel, setUserDetailIntel] = useState(null);
   const [loadingUserDetail, setLoadingUserDetail] = useState(false);
+
+  // Quick Concierge Direct Contact Modal
+  const [quickContactModal, setQuickContactModal] = useState({
+    isOpen: false,
+    contact: null,
+    customMessage: '',
+  });
+
+  // Enquiries & Leads State
+  const [enquiriesList, setEnquiriesList] = useState([]);
+  const [loadingEnquiries, setLoadingEnquiries] = useState(false);
+  const [enquiryStatusFilter, setEnquiryStatusFilter] = useState('all');
+
+  const loadEnquiriesList = useCallback(async () => {
+    setLoadingEnquiries(true);
+    try {
+      const data = await getAdminEnquiries();
+      setEnquiriesList(data || []);
+    } catch (err) {
+      console.warn('Load enquiries error:', err.message);
+    } finally {
+      setLoadingEnquiries(false);
+    }
+  }, []);
+
+  const handleUpdateEnquiryStatus = async (id, newStatus) => {
+    try {
+      await updateAdminEnquiry(id, newStatus);
+      setEnquiriesList((prev) =>
+        prev.map((e) => (e.id === id ? { ...e, status: newStatus } : e))
+      );
+      showToast(`Booking request marked as "${newStatus}"`, 'success');
+    } catch (err) {
+      showToast('Error updating enquiry: ' + err.message, 'error');
+    }
+  };
 
   const loadUsersList = useCallback(async () => {
     setLoadingUsers(true);
@@ -626,18 +682,34 @@ export default function AdminDashboard() {
     if (activeTab === 'users') {
       loadUsersList();
     }
-  }, [activeTab, loadUsersList]);
+    if (activeTab === 'enquiries' || activeTab === 'overview') {
+      loadEnquiriesList();
+    }
+  }, [activeTab, loadUsersList, loadEnquiriesList]);
 
+  // Comprehensive Users Filtering (separating Hosts and Guests / Users)
   const filteredUsersList = usersList.filter((u) => {
-    if (userStatusFilter === 'verified' && !u.emailVerified) return false;
-    if (userStatusFilter === 'unverified' && u.emailVerified) return false;
+    // 1. Role / Account Type separation
+    const isHost = u.accountType === 'host' || u.role === 'host' || (u.listingsCount && u.listingsCount > 0);
+    if (userRoleFilter === 'hosts' && !isHost) return false;
+    if (userRoleFilter === 'users' && (isHost || u.isAdmin)) return false;
+
+    // 2. Status filter
+    if (userStatusFilter === 'verified' && !u.emailVerified && !u.verified) return false;
+    if (userStatusFilter === 'unverified' && (u.emailVerified || u.verified)) return false;
     if (userStatusFilter === 'disabled' && !u.disabled) return false;
-    if (globalSearch.trim()) {
-      const q = globalSearch.toLowerCase().trim();
+
+    // 3. User search term across name, email, phone number
+    const term = (userSearchTerm || globalSearch).toLowerCase().trim();
+    if (term) {
       const match =
-        u.email?.toLowerCase().includes(q) ||
-        u.displayName?.toLowerCase().includes(q) ||
-        u.uid?.toLowerCase().includes(q);
+        u.email?.toLowerCase().includes(term) ||
+        u.displayName?.toLowerCase().includes(term) ||
+        u.username?.toLowerCase().includes(term) ||
+        u.name?.toLowerCase().includes(term) ||
+        u.phone?.toLowerCase().includes(term) ||
+        u.phoneNumber?.toLowerCase().includes(term) ||
+        u.uid?.toLowerCase().includes(term);
       if (!match) return false;
     }
     return true;
@@ -949,6 +1021,13 @@ export default function AdminDashboard() {
           images={zoomModal.images}
           initialIndex={zoomModal.initialIndex}
           onClose={() => setZoomModal((prev) => ({ ...prev, isOpen: false }))}
+        />
+
+        {/* Quick Concierge Direct Contact Modal (WhatsApp, Call, Email) */}
+        <QuickContactModal
+          isOpen={quickContactModal.isOpen}
+          onClose={() => setQuickContactModal((prev) => ({ ...prev, isOpen: false }))}
+          contact={quickContactModal.contact}
         />
 
         {/* Keyboard Shortcuts Help Modal */}
@@ -1766,6 +1845,66 @@ export default function AdminDashboard() {
             )}
 
             {/* --------------------------------------------------------- */}
+            {/* TAB: GUEST HOUSES & APARTMENTS (SEPARATED DIRECTORY) */}
+            {/* --------------------------------------------------------- */}
+            {activeTab === 'guesthouses' && (
+              <AdminGuesthousesTab
+                listings={allListingsTable}
+                loading={loadingListingsTable}
+                onRefresh={() => loadListingsTable(true)}
+                onToggleFeatured={handleToggleFeatured}
+                onToggleActive={(id, active, title) => {
+                  fetch(`/api/admin/listings/${id}/toggle-active`, {
+                    method: 'PATCH',
+                    headers: { 'x-admin-auth': 'true', 'x-user-role': 'admin' },
+                  })
+                    .then((r) => r.json())
+                    .then(() => {
+                      showToast(`Status updated for "${title || id}"`, 'success');
+                      loadListingsTable(true);
+                    })
+                    .catch((err) => showToast(err.message, 'error'));
+                }}
+                onArchive={handleArchiveListing}
+                onRestore={handleRestoreListing}
+                onDeleteWithReauth={handleDeleteListingWithReauth}
+                onOpenContact={(contact) =>
+                  setQuickContactModal({ isOpen: true, contact, customMessage: '' })
+                }
+              />
+            )}
+
+            {/* --------------------------------------------------------- */}
+            {/* TAB: CARS & PRIVATE DRIVERS FLEET (SEPARATED DIRECTORY) */}
+            {/* --------------------------------------------------------- */}
+            {activeTab === 'cars' && (
+              <AdminCarsTab
+                listings={allListingsTable}
+                loading={loadingListingsTable}
+                onRefresh={() => loadListingsTable(true)}
+                onToggleFeatured={handleToggleFeatured}
+                onToggleActive={(id, active, title) => {
+                  fetch(`/api/admin/listings/${id}/toggle-active`, {
+                    method: 'PATCH',
+                    headers: { 'x-admin-auth': 'true', 'x-user-role': 'admin' },
+                  })
+                    .then((r) => r.json())
+                    .then(() => {
+                      showToast(`Fleet status updated for "${title || id}"`, 'success');
+                      loadListingsTable(true);
+                    })
+                    .catch((err) => showToast(err.message, 'error'));
+                }}
+                onArchive={handleArchiveListing}
+                onRestore={handleRestoreListing}
+                onDeleteWithReauth={handleDeleteListingWithReauth}
+                onOpenContact={(contact) =>
+                  setQuickContactModal({ isOpen: true, contact, customMessage: '' })
+                }
+              />
+            )}
+
+            {/* --------------------------------------------------------- */}
             {/* TAB 3: ALL LISTINGS TABLE */}
             {/* --------------------------------------------------------- */}
             {activeTab === 'listings' && (
@@ -1925,6 +2064,14 @@ export default function AdminDashboard() {
                                   <FaExternalLinkAlt />
                                 </Link>
 
+                                <Link
+                                  to={`/update-listing/${listing.id}`}
+                                  className='p-1.5 text-slate-400 hover:text-amber-500 rounded-lg'
+                                  title='Edit Listing Information'
+                                >
+                                  <FaEdit />
+                                </Link>
+
                                 <button
                                   type='button'
                                   onClick={() => handleToggleFeatured(listing)}
@@ -2012,6 +2159,12 @@ export default function AdminDashboard() {
 
                           <div className='flex items-center gap-2'>
                             <Link
+                              to={`/update-listing/${listing.id}`}
+                              className='px-3 py-1 bg-amber-50 text-amber-800 rounded-lg font-bold'
+                            >
+                              Edit
+                            </Link>
+                            <Link
                               to={`/listing/${listing.id}`}
                               className='px-3 py-1 bg-slate-100 dark:bg-slate-800 rounded-lg text-slate-800 dark:text-white font-bold'
                             >
@@ -2045,172 +2198,26 @@ export default function AdminDashboard() {
             )}
 
             {/* --------------------------------------------------------- */}
-            {/* TAB 4: USERS MANAGEMENT & DETAIL DRAWER */}
+            {/* TAB 4: USERS & HOSTS DIRECTORY (SEPARATE HOSTS VS TRAVELERS) */}
             {/* --------------------------------------------------------- */}
             {activeTab === 'users' && (
               <div className='space-y-4'>
-                <div className='bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200/80 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs'>
-                  <div className='flex items-center gap-2'>
-                    <select
-                      value={userStatusFilter}
-                      onChange={(e) => setUserStatusFilter(e.target.value)}
-                      className='p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold'
-                    >
-                      <option value='all'>All Users</option>
-                      <option value='verified'>Email Verified Only</option>
-                      <option value='unverified'>Unverified Only</option>
-                      <option value='disabled'>Disabled Only</option>
-                    </select>
-                  </div>
+                <AdminUsersTab
+                  users={usersList}
+                  loading={loadingUsers}
+                  currentUser={currentUser}
+                  onRefresh={loadUsersList}
+                  onSelectUserForDrawer={handleSelectUserForDrawer}
+                  onToggleAdminRole={handleToggleAdminRole}
+                  onToggleUserDisabled={handleToggleUserDisabled}
+                  onDeleteUserWithReauth={handleDeleteUserWithReauth}
+                  onExportCSV={() => exportUsersCSV(usersList)}
+                  onOpenContact={(contact) =>
+                    setQuickContactModal({ isOpen: true, contact, customMessage: '' })
+                  }
+                />
 
-                  <div className='flex items-center gap-2'>
-                    <button
-                      type='button'
-                      onClick={() => exportUsersCSV(usersList)}
-                      className='px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold flex items-center gap-1.5 transition cursor-pointer'
-                    >
-                      <FaFileCsv />
-                      <span>Export CSV</span>
-                    </button>
-                    <button
-                      onClick={loadUsersList}
-                      className='p-2 text-slate-500 hover:text-slate-900 dark:hover:text-white rounded-xl'
-                    >
-                      <FaRedo />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Users Table */}
-                <div className='bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-xs'>
-                  <div className='overflow-x-auto'>
-                    <table className='w-full text-left text-xs'>
-                      <thead className='bg-slate-50 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider text-[10px] border-b border-slate-200/80 dark:border-slate-800'>
-                        <tr>
-                          <th className='py-3.5 px-4'>User</th>
-                          <th className='py-3.5 px-4'>Display Name</th>
-                          <th className='py-3.5 px-4'>Verified</th>
-                          <th className='py-3.5 px-4'>Role</th>
-                          <th className='py-3.5 px-4'>Status</th>
-                          <th className='py-3.5 px-4'>Signup Date</th>
-                          <th className='py-3.5 px-4 text-right'>Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className='divide-y divide-slate-100 dark:divide-slate-800/80'>
-                        {filteredUsersList.map((user) => {
-                          const isCurrentUser =
-                            user.uid === currentUser.uid || user.email === currentUser.email;
-
-                          return (
-                            <tr
-                              key={user.uid || user.id}
-                              onClick={() => handleSelectUserForDrawer(user)}
-                              className='hover:bg-slate-50 dark:hover:bg-slate-800/50 transition cursor-pointer'
-                            >
-                              <td className='py-3 px-4'>
-                                <div className='flex items-center gap-2.5'>
-                                  <div className='w-8 h-8 rounded-full bg-slate-800 text-amber-400 font-bold flex items-center justify-center shrink-0'>
-                                    {(user.email?.[0] || 'U').toUpperCase()}
-                                  </div>
-                                  <span className='font-bold text-slate-900 dark:text-white truncate block max-w-xs'>
-                                    {user.email}
-                                    {isCurrentUser && (
-                                      <span className='ml-1 text-[10px] text-amber-500'>(You)</span>
-                                    )}
-                                  </span>
-                                </div>
-                              </td>
-
-                              <td className='py-3 px-4 font-semibold text-slate-700 dark:text-slate-300'>
-                                {user.displayName || 'No Name'}
-                              </td>
-
-                              <td className='py-3 px-4'>
-                                {user.emailVerified ? (
-                                  <span className='text-emerald-600 font-bold flex items-center gap-1'>
-                                    <FaCheck className='text-[10px]' /> Verified
-                                  </span>
-                                ) : (
-                                  <span className='text-amber-500 font-semibold'>Unverified</span>
-                                )}
-                              </td>
-
-                              <td className='py-3 px-4'>
-                                <span
-                                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                    user.role === 'admin' || user.isAdmin
-                                      ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-                                      : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
-                                  }`}
-                                >
-                                  {user.role === 'admin' || user.isAdmin ? 'Admin' : 'User'}
-                                </span>
-                              </td>
-
-                              <td className='py-3 px-4'>
-                                {user.disabled ? (
-                                  <span className='text-rose-500 font-bold'>Disabled</span>
-                                ) : (
-                                  <span className='text-emerald-500 font-semibold'>Active</span>
-                                )}
-                              </td>
-
-                              <td className='py-3 px-4 text-slate-400'>
-                                {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
-                              </td>
-
-                              <td
-                                className='py-3 px-4 text-right'
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <div className='flex items-center justify-end gap-1.5'>
-                                  {/* Toggle Admin */}
-                                  <button
-                                    type='button'
-                                    disabled={isCurrentUser}
-                                    onClick={() => handleToggleAdminRole(user)}
-                                    className='p-1.5 text-slate-400 hover:text-amber-500 disabled:opacity-30 rounded-lg'
-                                    title={user.role === 'admin' ? 'Demote from Admin' : 'Promote to Admin'}
-                                  >
-                                    <FaUserShield />
-                                  </button>
-
-                                  {/* Toggle Disabled */}
-                                  <button
-                                    type='button'
-                                    disabled={isCurrentUser}
-                                    onClick={() => handleToggleUserDisabled(user)}
-                                    className={`p-1.5 rounded-lg disabled:opacity-30 ${
-                                      user.disabled
-                                        ? 'text-emerald-500 hover:bg-emerald-50'
-                                        : 'text-slate-400 hover:text-rose-600'
-                                    }`}
-                                    title={user.disabled ? 'Enable Account' : 'Disable Account'}
-                                  >
-                                    {user.disabled ? <FaUserCheck /> : <FaBan />}
-                                  </button>
-
-                                  {/* Delete user with re-authentication */}
-                                  <button
-                                    type='button'
-                                    disabled={isCurrentUser}
-                                    onClick={() => handleDeleteUserWithReauth(user)}
-                                    className='p-1.5 text-slate-400 hover:text-rose-600 disabled:opacity-30 rounded-lg'
-                                    title='Permanently Delete Account'
-                                  >
-                                    <FaTrashAlt />
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                {/* User Detail Drawer (Slide-over) */}
+                {/* User Detail Drawer (Slide-over for deep account inspection) */}
                 {selectedUserDetail && (
                   <div
                     className='fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex justify-end'
@@ -2227,10 +2234,10 @@ export default function AdminDashboard() {
                           </div>
                           <div>
                             <h3 className='font-bold text-sm truncate max-w-xs'>
-                              {selectedUserDetail.email}
+                              {selectedUserDetail.displayName || selectedUserDetail.username || selectedUserDetail.email}
                             </h3>
                             <p className='text-[11px] text-slate-400'>
-                              UID: {selectedUserDetail.uid || selectedUserDetail.id}
+                              {selectedUserDetail.email} • UID: {selectedUserDetail.uid || selectedUserDetail.id}
                             </p>
                           </div>
                         </div>
@@ -2243,15 +2250,45 @@ export default function AdminDashboard() {
                         </button>
                       </div>
 
+                      {/* Phone and Contact Actions */}
+                      <div className='p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl space-y-2 text-xs'>
+                        <div className='flex items-center justify-between'>
+                          <span className='text-slate-400 font-semibold'>Phone Number:</span>
+                          <span className='font-bold text-slate-800 dark:text-slate-100'>
+                            {selectedUserDetail.phoneNumber || selectedUserDetail.phone || 'Not provided'}
+                          </span>
+                        </div>
+                        {(selectedUserDetail.phoneNumber || selectedUserDetail.phone) && (
+                          <div className='flex items-center gap-2 pt-2'>
+                            <a
+                              href={`tel:${selectedUserDetail.phoneNumber || selectedUserDetail.phone}`}
+                              className='flex-1 py-2 px-3 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 rounded-xl text-center font-bold flex items-center justify-center gap-1.5'
+                            >
+                              <FaPhoneAlt className='text-emerald-500' />
+                              <span>Direct Call</span>
+                            </a>
+                            <a
+                              href={`https://wa.me/${(selectedUserDetail.phoneNumber || selectedUserDetail.phone).replace(/[^\d]/g, '')}`}
+                              target='_blank'
+                              rel='noopener noreferrer'
+                              className='flex-1 py-2 px-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-center font-bold flex items-center justify-center gap-1.5'
+                            >
+                              <FaWhatsapp />
+                              <span>WhatsApp</span>
+                            </a>
+                          </div>
+                        )}
+                      </div>
+
                       {/* User Stats Card */}
                       <div className='grid grid-cols-3 gap-3 bg-slate-50 dark:bg-slate-800/60 p-4 rounded-2xl text-xs'>
                         <div>
-                          <span className='text-slate-400 text-[10px] block'>Role</span>
-                          <span className='font-bold capitalize'>{selectedUserDetail.role || 'user'}</span>
+                          <span className='text-slate-400 text-[10px] block'>Account Role</span>
+                          <span className='font-bold capitalize'>{selectedUserDetail.role || selectedUserDetail.accountType || 'user'}</span>
                         </div>
                         <div>
                           <span className='text-slate-400 text-[10px] block'>Listings Owned</span>
-                          <span className='font-bold'>{userDetailIntel?.totalListings || 0}</span>
+                          <span className='font-bold'>{selectedUserDetail.listingsCount || userDetailIntel?.totalListings || 0}</span>
                         </div>
                         <div>
                           <span className='text-slate-400 text-[10px] block'>Status</span>
@@ -2337,6 +2374,21 @@ export default function AdminDashboard() {
                   </div>
                 )}
               </div>
+            )}
+
+            {/* --------------------------------------------------------- */}
+            {/* TAB: BOOKINGS & CONCIERGE LEADS */}
+            {/* --------------------------------------------------------- */}
+            {activeTab === 'enquiries' && (
+              <AdminEnquiriesTab
+                enquiries={enquiriesList}
+                loading={loadingEnquiries}
+                onRefresh={loadEnquiriesList}
+                onUpdateStatus={handleUpdateEnquiryStatus}
+                onOpenContact={(contact) =>
+                  setQuickContactModal({ isOpen: true, contact, customMessage: '' })
+                }
+              />
             )}
 
             {/* --------------------------------------------------------- */}

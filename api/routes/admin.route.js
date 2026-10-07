@@ -9,6 +9,9 @@ import {
   toggleStatusListing,
   toggleActiveListing,
   getUsers,
+  getAdminStatsController,
+  getEnquiriesController,
+  updateEnquiryController,
   adminCreateListing,
   adminDeleteListing,
   adminUpdateListing,
@@ -25,6 +28,9 @@ const router = express.Router();
 router.get('/listings', getAdminListings);
 router.get('/listings/all', getAllListings);
 router.get('/listings/pending', getPendingListings);
+router.get('/stats', getAdminStatsController);
+router.get('/enquiries', getEnquiriesController);
+router.patch('/enquiries/:id', updateEnquiryController);
 
 // 2. Specific action subpaths on listings
 router.patch('/listings/:id/approve', verifyToken, verifyAdmin, approveListing);
@@ -39,6 +45,8 @@ router.patch('/listings/:id/toggle-status', verifyToken, verifyAdmin, toggleStat
 // 3. User & Admin Management
 router.post('/set-claim', verifyToken, verifyAdmin, setAdminClaim);
 router.post('/toggle-user-disabled', verifyToken, verifyAdmin, setUserDisabled);
+router.patch('/users/:id/toggle-disabled', verifyToken, verifyAdmin, setUserDisabled);
+router.post('/users/:id/toggle-disabled', verifyToken, verifyAdmin, setUserDisabled);
 router.post('/delete-user', verifyToken, verifyAdmin, deleteUser);
 router.post('/send-decision-email', verifyToken, verifyAdmin, sendListingDecisionEmail);
 

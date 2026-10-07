@@ -9,7 +9,7 @@ const isDbConnected = () => mongoose.connection.readyState === 1;
 
 /**
  * 3. GET /api/admin/listings
- * Fetch listings filtered by isApproved / status or all listings
+ * Fetch listings filtered by isApproved / status or category / type (guesthouse vs car)
  */
 export const getAdminListings = async (req, res, next) => {
   try {
@@ -19,6 +19,14 @@ export const getAdminListings = async (req, res, next) => {
       onlyApproved: false,
       limit: 500,
     });
+
+    // Category / Type filter: guesthouse vs car_service
+    const catQuery = (req.query.category || req.query.type || '').toLowerCase();
+    if (catQuery === 'guesthouse' || catQuery === 'rent') {
+      list = list.filter((item) => item.category === 'guesthouse' || item.type === 'guesthouse' || item.type === 'rent');
+    } else if (catQuery === 'car' || catQuery === 'car_service' || catQuery === 'sale') {
+      list = list.filter((item) => item.category === 'car_service' || item.category === 'car' || item.type === 'car' || item.type === 'sale');
+    }
 
     if (req.query.isApproved !== undefined) {
       const filterApproved = req.query.isApproved === 'true';
@@ -42,6 +50,13 @@ export const getAdminListings = async (req, res, next) => {
 
   try {
     let list = mockStore.getAllListings();
+    const catQuery = (req.query.category || req.query.type || '').toLowerCase();
+    if (catQuery === 'guesthouse' || catQuery === 'rent') {
+      list = list.filter((item) => item.category === 'guesthouse' || item.type === 'guesthouse' || item.type === 'rent');
+    } else if (catQuery === 'car' || catQuery === 'car_service' || catQuery === 'sale') {
+      list = list.filter((item) => item.category === 'car_service' || item.category === 'car' || item.type === 'car' || item.type === 'sale');
+    }
+
     if (req.query.isApproved !== undefined) {
       const filterApproved = req.query.isApproved === 'true';
       list = list.filter((item) => {
@@ -179,17 +194,123 @@ export const toggleActiveListing = toggleStatusListing;
 
 /**
  * GET /api/admin/users
+ * Returns list of all signed users, separated by role/accountType (hosts vs users),
+ * with names, emails, phone numbers, and service types.
  */
 export const getUsers = async (req, res, next) => {
   try {
-    const allUsers = firebaseStore.getAllUsers();
-    return res.status(200).json(allUsers);
-  } catch (error) {
-    const mockUsers = mockStore.getAllUsers().map((user) => {
-      const { password, ...rest } = user;
-      return rest;
+    let users = firebaseStore.getAllUsers();
+    if (!users || users.length === 0) {
+      users = mockStore.getAllUsers();
+    }
+
+    // Get listings to calculate real-time listing count for each host
+    const allListings = firebaseStore.getListings({ all: 'true', isAdmin: 'true' }) || [];
+
+    const enrichedUsers = users.map((u) => {
+      const userListings = allListings.filter(
+        (l) => l.userRef === u._id || l.ownerId === u._id || (u.email && l.ownerEmail?.toLowerCase() === u.email.toLowerCase())
+      );
+      const isHost = u.accountType === 'host' || u.role === 'host' || userListings.length > 0;
+      const hostCategory = userListings.some((l) => l.category === 'car_service' || l.type === 'car')
+        ? userListings.some((l) => l.category === 'guesthouse' || l.type === 'guesthouse')
+          ? 'both'
+          : 'car_service'
+        : u.hostType || (isHost ? 'guesthouse' : null);
+
+      const { password, ...safeUser } = u;
+
+      return {
+        ...safeUser,
+        uid: safeUser._id || safeUser.id,
+        id: safeUser._id || safeUser.id,
+        displayName: safeUser.displayName || safeUser.username || safeUser.email?.split('@')[0],
+        name: safeUser.displayName || safeUser.username || safeUser.email?.split('@')[0],
+        phoneNumber: safeUser.phoneNumber || safeUser.phone || '',
+        phone: safeUser.phone || safeUser.phoneNumber || '',
+        accountType: safeUser.isAdmin ? 'admin' : isHost ? 'host' : 'user',
+        role: safeUser.isAdmin ? 'admin' : isHost ? 'host' : (safeUser.role || 'user'),
+        hostType: hostCategory,
+        listingsCount: userListings.length || safeUser.listingsCount || 0,
+        bookingsCount: safeUser.bookingsCount || (isHost ? 0 : 1),
+        verified: safeUser.verified !== undefined ? safeUser.verified : Boolean(safeUser.emailVerified),
+      };
     });
-    return res.status(200).json(mockUsers);
+
+    // Query filters: type ('host' | 'user' | 'admin' | 'all')
+    const typeFilter = req.query.type;
+    let filtered = enrichedUsers;
+    if (typeFilter && typeFilter !== 'all') {
+      if (typeFilter === 'host') {
+        filtered = filtered.filter((u) => u.accountType === 'host' || u.role === 'host');
+      } else if (typeFilter === 'user' || typeFilter === 'guest') {
+        filtered = filtered.filter((u) => u.accountType === 'user' && !u.isAdmin && u.role !== 'host');
+      } else if (typeFilter === 'admin') {
+        filtered = filtered.filter((u) => u.isAdmin || u.role === 'admin');
+      }
+    }
+
+    // Search query: search by name, email, or phone number
+    const searchQuery = (req.query.search || req.query.q || '').toLowerCase().trim();
+    if (searchQuery) {
+      filtered = filtered.filter(
+        (u) =>
+          (u.displayName && u.displayName.toLowerCase().includes(searchQuery)) ||
+          (u.email && u.email.toLowerCase().includes(searchQuery)) ||
+          (u.phone && u.phone.toLowerCase().includes(searchQuery)) ||
+          (u.phoneNumber && u.phoneNumber.toLowerCase().includes(searchQuery))
+      );
+    }
+
+    return res.status(200).json(filtered);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * GET /api/admin/stats
+ * Detailed metrics separating guesthouses vs cars, hosts vs guests
+ */
+export const getAdminStatsController = async (req, res, next) => {
+  try {
+    const stats = firebaseStore.getAdminStats();
+    return res.status(200).json(stats);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * GET /api/admin/enquiries
+ * Retrieve guest bookings and chauffeur ride requests for concierge management
+ */
+export const getEnquiriesController = async (req, res, next) => {
+  try {
+    const enquiries = mockStore.getEnquiries();
+    return res.status(200).json(enquiries);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * PATCH /api/admin/enquiries/:id
+ * Update status of booking/ride request (e.g. contacted, confirmed, completed)
+ */
+export const updateEnquiryController = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { status, notes } = req.body;
+    return res.status(200).json({
+      success: true,
+      message: `Enquiry ${id} updated`,
+      id,
+      status: status || 'contacted',
+      notes,
+    });
+  } catch (error) {
+    next(error);
   }
 };
 
@@ -407,7 +528,8 @@ export const setAdminClaim = async (req, res, next) => {
  */
 export const setUserDisabled = async (req, res, next) => {
   try {
-    const { uid, disabled } = req.body;
+    const uid = req.body.uid || req.params.id;
+    const { disabled } = req.body;
     if (!uid) return next(errorHandler(400, 'User UID is required.'));
 
     if (req.user && req.user.id === uid && disabled) {

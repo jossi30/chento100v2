@@ -76,21 +76,28 @@ app.use('/api/admin', adminRouter);
 
 // Serve static admin app assets from admin-app/dist
 const adminDistPath = path.join(__dirname, 'admin-app', 'dist');
-if (fs.existsSync(adminDistPath)) {
-  app.use('/admin', express.static(adminDistPath));
-  app.get(['/admin', '/admin/*'], (req, res) => {
-    res.sendFile(path.join(adminDistPath, 'index.html'));
-  });
-}
+app.use('/admin', express.static(adminDistPath));
+app.get(['/admin', '/admin/*'], (req, res, next) => {
+  const adminIndex = path.join(adminDistPath, 'index.html');
+  if (fs.existsSync(adminIndex)) {
+    return res.sendFile(adminIndex);
+  }
+  next();
+});
 
 // Serve public images
 app.use('/images', express.static(path.join(__dirname, 'client', 'public', 'images')));
 
 // Serve static frontend assets from client/dist
-app.use(express.static(path.join(__dirname, 'client', 'dist')));
+const clientDistPath = path.join(__dirname, 'client', 'dist');
+app.use(express.static(clientDistPath));
 
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'client', 'dist', 'index.html'));
+  const clientIndex = path.join(clientDistPath, 'index.html');
+  if (fs.existsSync(clientIndex)) {
+    return res.sendFile(clientIndex);
+  }
+  return res.status(200).send('<!doctype html><html><head><meta charset="utf-8"><title>chento 100</title></head><body style="font-family:sans-serif;padding:2rem;text-align:center;"><h2>Starting application...</h2><p>Please refresh the page in a few moments.</p><script>setTimeout(() => window.location.reload(), 2500);</script></body></html>');
 });
 
 // Database offline / Mongoose error fallback middleware

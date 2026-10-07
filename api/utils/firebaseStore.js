@@ -146,6 +146,17 @@ const seedInitialListings = () => {
   }
 };
 
+// Helper to seed users into store
+const seedUsersIntoStore = () => {
+  if (usersMap.size === 0) {
+    const mockUsers = mockStore.getAllUsers();
+    mockUsers.forEach((u) => {
+      usersMap.set(u._id, { ...u });
+    });
+  }
+};
+seedUsersIntoStore();
+
 // Seed immediately on load
 seedInitialListings();
 
@@ -340,12 +351,33 @@ export const firebaseStore = {
 
   getAdminStats: () => {
     const list = Array.from(listingsMap.values()).filter((l) => !deletedListingIds.has(l._id));
+    const allUsers = Array.from(usersMap.values());
+    const guesthouses = list.filter((l) => l.category === 'guesthouse' || l.type === 'guesthouse' || l.type === 'rent');
+    const cars = list.filter((l) => l.category === 'car_service' || l.category === 'car' || l.type === 'car' || l.type === 'sale');
+
+    const hosts = allUsers.filter((u) => u.accountType === 'host' || u.role === 'host' || (u.listingsCount && u.listingsCount > 0));
+    const regularUsers = allUsers.filter((u) => u.accountType === 'user' || (!u.isAdmin && u.role !== 'host'));
+
     return {
-      totalUsers: usersMap.size,
+      totalUsers: allUsers.length,
+      totalHosts: hosts.length,
+      totalGuests: regularUsers.length,
       totalListings: list.length,
       pendingCount: list.filter((l) => l.status === 'pending' || !l.isApproved).length,
       approvedCount: list.filter((l) => l.status === 'approved' && l.isApproved).length,
       rejectedCount: list.filter((l) => l.status === 'rejected').length,
+      guesthouses: {
+        total: guesthouses.length,
+        approved: guesthouses.filter((l) => l.status === 'approved' && l.isApproved).length,
+        pending: guesthouses.filter((l) => l.status === 'pending' || !l.isApproved).length,
+        active: guesthouses.filter((l) => l.active !== false && l.isActive !== false).length,
+      },
+      cars: {
+        total: cars.length,
+        approved: cars.filter((l) => l.status === 'approved' && l.isApproved).length,
+        pending: cars.filter((l) => l.status === 'pending' || !l.isApproved).length,
+        active: cars.filter((l) => l.active !== false && l.isActive !== false).length,
+      },
     };
   },
 

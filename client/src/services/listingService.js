@@ -867,18 +867,117 @@ export async function toggleFeaturedListing(listingId, featuredState, adminUid) 
 }
 
 /**
- * Get all users for admin users table
+ * Get all users for admin users table (synced with Firestore and backend API)
  */
-export async function getAllUsers() {
+export async function getAllUsers(typeFilter = 'all') {
+  const usersMap = new Map();
+
+  // 1. Try fetching from Firestore users collection
   try {
     const snap = await getDocs(collection(db, USERS_COLLECTION));
-    const list = [];
-    snap.forEach((d) => list.push({ uid: d.id, ...d.data() }));
-    return list;
+    snap.forEach((d) => {
+      const data = d.data();
+      const id = d.id;
+      usersMap.set(id, {
+        uid: id,
+        id,
+        _id: id,
+        displayName: data.displayName || data.username || data.email?.split('@')[0],
+        name: data.displayName || data.username || data.email?.split('@')[0],
+        email: data.email || '',
+        phone: data.phone || data.phoneNumber || '',
+        phoneNumber: data.phoneNumber || data.phone || '',
+        accountType: data.accountType || (data.isAdmin ? 'admin' : data.role === 'host' ? 'host' : 'user'),
+        role: data.role || (data.isAdmin ? 'admin' : 'user'),
+        hostType: data.hostType || null,
+        emailVerified: Boolean(data.emailVerified),
+        verified: data.verified !== undefined ? Boolean(data.verified) : Boolean(data.emailVerified),
+        disabled: Boolean(data.disabled),
+        createdAt: data.createdAt || new Date().toISOString(),
+        ...data,
+      });
+    });
   } catch (err) {
-    handleFirestoreError(err, OperationType.GET, USERS_COLLECTION);
-    return [];
+    /* ignore firestore read errors in case of permissions or offline */
   }
+
+  // 2. Fetch from backend API /api/admin/users
+  try {
+    const url = typeFilter && typeFilter !== 'all' ? `/api/admin/users?type=${typeFilter}` : '/api/admin/users';
+    const res = await fetch(url, {
+      headers: {
+        'x-admin-auth': 'true',
+        'x-user-role': 'admin',
+      },
+    });
+    if (res.ok) {
+      const apiUsers = await res.json();
+      if (Array.isArray(apiUsers)) {
+        apiUsers.forEach((u) => {
+          const id = u.uid || u._id || u.id;
+          const existing = usersMap.get(id);
+          usersMap.set(id, {
+            ...existing,
+            ...u,
+            uid: id,
+            id,
+            _id: id,
+            displayName: u.displayName || u.username || existing?.displayName,
+            name: u.name || u.displayName || u.username || existing?.displayName,
+            phone: u.phone || u.phoneNumber || existing?.phone || '',
+            phoneNumber: u.phoneNumber || u.phone || existing?.phoneNumber || '',
+            accountType: u.accountType || (u.isAdmin ? 'admin' : u.role === 'host' ? 'host' : 'user'),
+          });
+        });
+      }
+    }
+  } catch (apiErr) {
+    console.warn('API users sync notice:', apiErr.message);
+  }
+
+  const list = Array.from(usersMap.values());
+  list.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+  return list;
+}
+
+/**
+ * Get enquiries & concierge bookings for admin
+ */
+export async function getAdminEnquiries() {
+  try {
+    const res = await fetch('/api/admin/enquiries', {
+      headers: { 'x-admin-auth': 'true', 'x-user-role': 'admin' },
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (e) {
+    /* ignore api error */
+  }
+  return [];
+}
+
+/**
+ * Update enquiry status
+ */
+export async function updateAdminEnquiry(id, status, notes = '') {
+  try {
+    const res = await fetch(`/api/admin/enquiries/${id}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-auth': 'true',
+        'x-user-role': 'admin',
+      },
+      body: JSON.stringify({ status, notes }),
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (e) {
+    /* ignore api error */
+  }
+  return null;
 }
 
 /**
