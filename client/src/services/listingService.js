@@ -305,6 +305,63 @@ export async function getFeaturedListings(type = null, limitCount = 6) {
 }
 
 /**
+ * Fetch best offer / discounted approved listings for Home Page slideshow
+ */
+export async function getOfferListings(limitCount = 8) {
+  const combinedMap = new Map();
+
+  try {
+    const snap = await getDocs(
+      query(
+        collection(db, LISTINGS_COLLECTION),
+        where('status', '==', 'approved'),
+        limit(limitCount * 2)
+      )
+    );
+    snap.forEach((d) => {
+      const norm = normalizeClientListing(d.data(), d.id);
+      combinedMap.set(norm.id, norm);
+    });
+  } catch (err) {
+    /* ignore firestore error */
+  }
+
+  try {
+    const apiItems = await fetchApiListings({ onlyApproved: true });
+    apiItems.forEach((item) => {
+      const norm = normalizeClientListing(item);
+      if (!combinedMap.has(norm.id)) combinedMap.set(norm.id, norm);
+      else combinedMap.set(norm.id, { ...combinedMap.get(norm.id), ...norm });
+    });
+  } catch (e) {
+    /* ignore api error */
+  }
+
+  let list = Array.from(combinedMap.values()).filter((item) => {
+    if (item.status !== 'approved' || item.active === false || item.isActive === false) return false;
+    return Boolean(
+      item.offer ||
+      (Number(item.discountPrice) > 0 && Number(item.discountPrice) < Number(item.regularPrice)) ||
+      item.featured
+    );
+  });
+
+  // If fewer than 4 offer listings, backfill with approved listings
+  if (list.length < 4) {
+    const fallback = Array.from(combinedMap.values()).filter(
+      (item) => item.status === 'approved' && item.active !== false && item.isActive !== false
+    );
+    fallback.forEach((f) => {
+      if (!list.find((x) => x.id === f.id)) {
+        list.push({ ...f, offer: true });
+      }
+    });
+  }
+
+  return list.slice(0, limitCount);
+}
+
+/**
  * Fetch recent approved listings for Home Page
  */
 export async function getRecentApprovedListings(type = null, limitCount = 6) {

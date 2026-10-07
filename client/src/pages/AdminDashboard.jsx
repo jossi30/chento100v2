@@ -63,6 +63,7 @@ import {
   archiveListing,
   restoreListing,
   deleteListing,
+  updateListing,
   getAllUsers,
   toggleUserDisabled,
   getAllReports,
@@ -92,6 +93,7 @@ import AdminCarsTab from '../components/admin/AdminCarsTab';
 import AdminUsersTab from '../components/admin/AdminUsersTab';
 import AdminEnquiriesTab from '../components/admin/AdminEnquiriesTab';
 import QuickContactModal from '../components/admin/QuickContactModal';
+import AdminEditListingModal from '../components/admin/AdminEditListingModal';
 import {
   rejectReasonSchema,
   requestChangesSchema,
@@ -460,6 +462,9 @@ export default function AdminDashboard() {
       if (e.key === 'a' || e.key === 'A') {
         e.preventDefault();
         if (activePendingListing) handleApprovePending(activePendingListing);
+      } else if (e.key === 'e' || e.key === 'E') {
+        e.preventDefault();
+        if (activePendingListing) setEditListingModal({ isOpen: true, listing: activePendingListing });
       } else if (e.key === 'r' || e.key === 'R') {
         e.preventDefault();
         if (activePendingListing) handleOpenRejectDialog(activePendingListing);
@@ -636,6 +641,26 @@ export default function AdminDashboard() {
     contact: null,
     customMessage: '',
   });
+
+  // Admin Direct Listing Edit Modal State
+  const [editListingModal, setEditListingModal] = useState({
+    isOpen: false,
+    listing: null,
+  });
+
+  const handleAdminSaveListing = async (listingId, updates) => {
+    try {
+      await updateListing(listingId, updates, true);
+      showToast('Listing details updated successfully!', 'success');
+      loadListingsTable(true);
+      if (activeTab === 'pending') {
+        loadPendingQueue();
+      }
+    } catch (err) {
+      showToast(err.message || 'Failed to update listing', 'error');
+      throw err;
+    }
+  };
 
   // Enquiries & Leads State
   const [enquiriesList, setEnquiriesList] = useState([]);
@@ -1028,6 +1053,14 @@ export default function AdminDashboard() {
           isOpen={quickContactModal.isOpen}
           onClose={() => setQuickContactModal((prev) => ({ ...prev, isOpen: false }))}
           contact={quickContactModal.contact}
+        />
+
+        {/* Admin Direct Listing Edit Modal */}
+        <AdminEditListingModal
+          isOpen={editListingModal.isOpen}
+          listing={editListingModal.listing}
+          onClose={() => setEditListingModal({ isOpen: false, listing: null })}
+          onSaved={handleAdminSaveListing}
         />
 
         {/* Keyboard Shortcuts Help Modal */}
@@ -1563,6 +1596,15 @@ export default function AdminDashboard() {
 
                           <div className='flex items-center gap-2'>
                             <button
+                              type='button'
+                              onClick={() => setEditListingModal({ isOpen: true, listing: activePendingListing })}
+                              className='px-3.5 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold rounded-xl transition cursor-pointer flex items-center gap-1.5 shadow-xs'
+                              title='Edit Listing Info, Pricing & Specs (E)'
+                            >
+                              <FaEdit />
+                              <span>Edit Info (E)</span>
+                            </button>
+                            <button
                               onClick={() => handleOpenChangesDialog(activePendingListing)}
                               className='px-3.5 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-800 dark:text-slate-200 text-xs font-bold rounded-xl transition cursor-pointer'
                             >
@@ -1871,6 +1913,7 @@ export default function AdminDashboard() {
                 onOpenContact={(contact) =>
                   setQuickContactModal({ isOpen: true, contact, customMessage: '' })
                 }
+                onEditListing={(item) => setEditListingModal({ isOpen: true, listing: item })}
               />
             )}
 
@@ -1901,6 +1944,7 @@ export default function AdminDashboard() {
                 onOpenContact={(contact) =>
                   setQuickContactModal({ isOpen: true, contact, customMessage: '' })
                 }
+                onEditListing={(item) => setEditListingModal({ isOpen: true, listing: item })}
               />
             )}
 
@@ -2064,13 +2108,14 @@ export default function AdminDashboard() {
                                   <FaExternalLinkAlt />
                                 </Link>
 
-                                <Link
-                                  to={`/update-listing/${listing.id}`}
-                                  className='p-1.5 text-slate-400 hover:text-amber-500 rounded-lg'
+                                <button
+                                  type='button'
+                                  onClick={() => setEditListingModal({ isOpen: true, listing })}
+                                  className='p-1.5 text-slate-400 hover:text-amber-500 rounded-lg transition cursor-pointer'
                                   title='Edit Listing Information'
                                 >
                                   <FaEdit />
-                                </Link>
+                                </button>
 
                                 <button
                                   type='button'
@@ -2158,12 +2203,13 @@ export default function AdminDashboard() {
                           </button>
 
                           <div className='flex items-center gap-2'>
-                            <Link
-                              to={`/update-listing/${listing.id}`}
-                              className='px-3 py-1 bg-amber-50 text-amber-800 rounded-lg font-bold'
+                            <button
+                              type='button'
+                              onClick={() => setEditListingModal({ isOpen: true, listing })}
+                              className='px-3 py-1 bg-amber-50 text-amber-800 rounded-lg font-bold cursor-pointer'
                             >
                               Edit
-                            </Link>
+                            </button>
                             <Link
                               to={`/listing/${listing.id}`}
                               className='px-3 py-1 bg-slate-100 dark:bg-slate-800 rounded-lg text-slate-800 dark:text-white font-bold'

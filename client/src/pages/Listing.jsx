@@ -23,6 +23,7 @@ import {
   FaEnvelope,
   FaArrowLeft,
   FaEye,
+  FaEdit,
 } from 'react-icons/fa';
 import { getListingById, submitReport } from '../services/listingService';
 import { useAuth } from '../context/AuthContext';
@@ -196,14 +197,25 @@ export default function Listing() {
               ? 'This listing is pending moderation by the chento 100 team. Only you and platform administrators can see this preview.'
               : `Moderation Feedback: ${listing.rejectionReason || 'Requires revision before publishing.'}`}
           </div>
-          {isAdmin && (
-            <Link
-              to='/admin-dashboard'
-              className='px-3 py-1.5 bg-slate-900 text-white font-bold rounded-lg text-xs hover:bg-slate-800'
-            >
-              Review in Admin Queue
-            </Link>
-          )}
+          <div className='flex items-center gap-2'>
+            {(isAdmin || (currentUser && (currentUser.uid === listing.ownerId || currentUser._id === listing.ownerId))) && (
+              <Link
+                to={`/update-listing/${listing.id || listingId}`}
+                className='px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg text-xs flex items-center gap-1.5 transition'
+              >
+                <FaEdit />
+                <span>Edit Listing Info</span>
+              </Link>
+            )}
+            {isAdmin && (
+              <Link
+                to='/admin-dashboard'
+                className='px-3 py-1.5 bg-slate-900 text-white font-bold rounded-lg text-xs hover:bg-slate-800'
+              >
+                Review in Admin Queue
+              </Link>
+            )}
+          </div>
         </div>
       )}
 
@@ -376,6 +388,25 @@ export default function Listing() {
         {/* Right Column: Rate Card & Direct Contact Actions */}
         <div className='space-y-6 lg:sticky lg:top-24'>
           <div className='bg-white p-6 rounded-3xl border border-slate-200 shadow-xl space-y-5'>
+            {/* Owner / Admin Management Quick Bar */}
+            {(isAdmin || (currentUser && (currentUser.uid === listing.ownerId || currentUser._id === listing.ownerId))) && (
+              <div className='p-3 bg-amber-50/80 border border-amber-200 rounded-2xl flex items-center justify-between text-xs'>
+                <div>
+                  <span className='font-bold text-slate-900 block'>
+                    {isAdmin ? 'Administrator' : 'Host / Owner'}
+                  </span>
+                  <span className='text-[10px] text-slate-500'>Manage this listing</span>
+                </div>
+                <Link
+                  to={`/update-listing/${listing.id || listingId}`}
+                  className='px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl transition flex items-center gap-1 shadow-xs cursor-pointer'
+                >
+                  <FaEdit className='text-xs' />
+                  <span>Edit Info</span>
+                </Link>
+              </div>
+            )}
+
             {/* Price Header */}
             <div className='border-b border-slate-100 pb-4'>
               <span className='text-xs text-slate-400 font-semibold uppercase tracking-wider block'>Rate</span>

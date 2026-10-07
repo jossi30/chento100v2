@@ -32,6 +32,7 @@ export default function AdminGuesthousesTab({
   onRestore,
   onDeleteWithReauth,
   onOpenContact,
+  onEditListing,
 }) {
   const [statusFilter, setStatusFilter] = useState('all');
   const [cityFilter, setCityFilter] = useState('');
@@ -335,13 +336,14 @@ export default function AdminGuesthousesTab({
                           <FaExternalLinkAlt />
                         </Link>
 
-                        <Link
-                          to={`/update-listing/${listing.id}`}
-                          className='p-1.5 text-slate-400 hover:text-amber-500 rounded-lg transition'
+                        <button
+                          type='button'
+                          onClick={() => onEditListing ? onEditListing(listing) : null}
+                          className='p-1.5 text-slate-400 hover:text-amber-500 rounded-lg transition cursor-pointer'
                           title='Edit Property Information'
                         >
                           <FaEdit />
-                        </Link>
+                        </button>
 
                         <button
                           type='button'
@@ -432,12 +434,13 @@ export default function AdminGuesthousesTab({
                 </button>
 
                 <div className='flex items-center gap-2'>
-                  <Link
-                    to={`/update-listing/${listing.id}`}
-                    className='px-3 py-1 bg-amber-50 text-amber-800 rounded-lg font-bold'
+                  <button
+                    type='button'
+                    onClick={() => onEditListing ? onEditListing(listing) : null}
+                    className='px-3 py-1 bg-amber-50 text-amber-800 rounded-lg font-bold cursor-pointer'
                   >
                     Edit
-                  </Link>
+                  </button>
                   <Link
                     to={`/listing/${listing.id}`}
                     className='px-3 py-1 bg-slate-100 dark:bg-slate-800 rounded-lg text-slate-800 dark:text-white font-bold'

@@ -1,7 +1,8 @@
 import bcryptjs from 'bcryptjs';
+import { storage } from './storage.js';
 
 const mockUsers = new Map();
-const mockListings = new Map();
+const mockListings = storage;
 const deletedListingIds = new Set();
 
 // Seed initial mock users, hosts, and guests with names, emails, and phone numbers
@@ -501,208 +502,35 @@ export const mockStore = {
   listings: mockListings,
 
   getAllListings() {
-    return Array.from(mockListings.values());
+    return storage.getAllListings();
   },
 
   getListings(query = {}) {
-    let list = Array.from(mockListings.values()).filter((item) => !deletedListingIds.has(item._id));
-
-    // Search term
-    if (query.searchTerm && typeof query.searchTerm === 'string') {
-      const term = query.searchTerm.toLowerCase();
-      list = list.filter(
-        (item) =>
-          (typeof item.name === 'string' && item.name.toLowerCase().includes(term)) ||
-          (typeof item.title === 'string' && item.title.toLowerCase().includes(term)) ||
-          (typeof item.description === 'string' && item.description.toLowerCase().includes(term)) ||
-          (typeof item.address === 'string' && item.address.toLowerCase().includes(term)) ||
-          (typeof item.location === 'string' && item.location.toLowerCase().includes(term)) ||
-          (typeof item.make === 'string' && item.make.toLowerCase().includes(term)) ||
-          (typeof item.model === 'string' && item.model.toLowerCase().includes(term))
-      );
-    }
-
-    // Category / Type
-    let category = query.category;
-    if (category === 'car') category = 'car_service';
-    if (!category && query.type) {
-      if (query.type === 'rent') category = 'guesthouse';
-      else if (query.type === 'sale') category = 'car_service';
-    }
-
-    if (category && category !== 'all') {
-      list = list.filter(
-        (item) =>
-          item.category === category ||
-          (category === 'car_service' && (item.category === 'car' || item.type === 'sale')) ||
-          (category === 'guesthouse' && (item.category === 'guesthouse' || item.type === 'rent'))
-      );
-    }
-
-    // Guesthouse specific filters
-    if (query.bedrooms && parseInt(query.bedrooms) > 0) {
-      const minBeds = parseInt(query.bedrooms);
-      list = list.filter((item) => (item.bedrooms || 0) >= minBeds);
-    }
-    if (query.bathrooms && parseInt(query.bathrooms) > 0) {
-      const minBaths = parseInt(query.bathrooms);
-      list = list.filter((item) => (item.bathrooms || 0) >= minBaths);
-    }
-    if (query.maxGuests && parseInt(query.maxGuests) > 0) {
-      const minGuests = parseInt(query.maxGuests);
-      list = list.filter((item) => (item.maxGuests || (item.bedrooms ? item.bedrooms * 2 : 2)) >= minGuests);
-    }
-
-    const requestedAmenities = [];
-    if (query.wifi === 'true') requestedAmenities.push('wifi');
-    if (query.kitchen === 'true') requestedAmenities.push('kitchen');
-    if (query.airConditioning === 'true') requestedAmenities.push('air');
-    if (query.pool === 'true') requestedAmenities.push('pool');
-    if (query.amenities && typeof query.amenities === 'string') {
-      query.amenities.split(',').forEach((a) => {
-        if (a && typeof a === 'string' && a.trim()) requestedAmenities.push(a.trim().toLowerCase());
-      });
-    }
-    if (requestedAmenities.length > 0) {
-      list = list.filter((item) => {
-        const itemAmenities = Array.isArray(item.amenities)
-          ? item.amenities.map((a) => (typeof a === 'string' ? a.toLowerCase() : String(a || '').toLowerCase()))
-          : (typeof item.description === 'string' ? item.description.toLowerCase() : '');
-        return requestedAmenities.every((reqAmenity) => {
-          if (Array.isArray(itemAmenities)) {
-            return itemAmenities.some((ia) => ia.includes(reqAmenity));
-          }
-          return itemAmenities.includes(reqAmenity);
-        });
-      });
-    }
-
-    // Car specific filters
-    if (query.transmission && query.transmission !== 'all') {
-      list = list.filter((item) => (item.transmission || 'automatic') === query.transmission);
-    }
-    if (query.driverIncluded === 'true') {
-      list = list.filter((item) => item.driverIncluded === true || item.type === 'sale');
-    }
-    if (query.seats && parseInt(query.seats) > 0) {
-      const minSeats = parseInt(query.seats);
-      list = list.filter((item) => (item.seats || item.bedrooms || 0) >= minSeats);
-    }
-
-    // Sort
-    const sortField = query.sort === 'regularPrice' || query.sort === 'price' ? 'regularPrice' : 'createdAt';
-    const order = query.order === 'asc' ? 1 : -1;
-    list.sort((a, b) => {
-      const valA = a[sortField] ?? a.price ?? 0;
-      const valB = b[sortField] ?? b.price ?? 0;
-      if (valA < valB) return -1 * order;
-      if (valA > valB) return 1 * order;
-      return 0;
-    });
-
-    // Pagination
-    const startIndex = parseInt(query.startIndex) || 0;
-    const limit = parseInt(query.limit) || 9;
-    return list.slice(startIndex, startIndex + limit);
+    return storage.getListings(query);
   },
 
   getListing(id) {
-    if (deletedListingIds.has(id)) return null;
-    return mockListings.get(id) || null;
+    return storage.getListing(id);
   },
 
   createListing(data) {
-    const id = data._id || 'listing_' + Date.now();
-    deletedListingIds.delete(id);
-    const category = data.category === 'car' ? 'car_service' : data.category || 'guesthouse';
-    const isApproved =
-      data.isApproved !== undefined ? Boolean(data.isApproved) : data.status === 'approved';
-    const isActive =
-      data.isActive !== undefined
-        ? Boolean(data.isActive)
-        : data.active !== undefined
-        ? Boolean(data.active)
-        : true;
-    const status = isApproved ? 'approved' : data.status || 'pending';
-    const active = isActive;
-
-    const newListing = {
-      ...data,
-      _id: id,
-      category,
-      isApproved,
-      isActive,
-      status,
-      active,
-      regularPrice: data.regularPrice !== undefined ? data.regularPrice : data.price,
-      price: data.price !== undefined ? data.price : data.regularPrice,
-      address: data.address || data.location,
-      location: data.location || data.address,
-      title: data.title || data.name,
-      name: data.name || data.title,
-      imageURLs: data.imageURLs || data.imageUrls || [],
-      imageUrls: data.imageUrls || data.imageURLs || [],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    mockListings.set(id, newListing);
-    return newListing;
+    return storage.createListing(data);
   },
 
   updateListing(id, data) {
-    const existing = mockListings.get(id);
-    if (!existing) return null;
-
-    const category =
-      data.category === 'car'
-        ? 'car_service'
-        : data.category !== undefined
-        ? data.category
-        : existing.category;
-
-    let isApproved = existing.isApproved;
-    if (data.isApproved !== undefined) {
-      isApproved = Boolean(data.isApproved);
-    } else if (data.status !== undefined) {
-      isApproved = data.status === 'approved';
-    }
-
-    let isActive = existing.isActive;
-    if (data.isActive !== undefined) {
-      isActive = Boolean(data.isActive);
-    } else if (data.active !== undefined) {
-      isActive = Boolean(data.active);
-    }
-
-    const updated = {
-      ...existing,
-      ...data,
-      category,
-      isApproved,
-      isActive,
-      status: data.status !== undefined ? data.status : isApproved ? 'approved' : 'pending',
-      active: isActive,
-      updatedAt: new Date().toISOString(),
-    };
-    mockListings.set(id, updated);
-    return updated;
+    return storage.updateListing(id, data);
   },
 
   deleteListing(id) {
-    deletedListingIds.add(id);
-    return mockListings.delete(id);
+    return storage.deleteListing(id);
   },
 
   getUserListings(userRef) {
-    return Array.from(mockListings.values()).filter(
-      (item) => item.userRef === userRef
-    );
+    return storage.getListings({ userRef, all: 'true' });
   },
 
   getPendingListings() {
-    return Array.from(mockListings.values()).filter(
-      (item) => item.status === 'pending'
-    );
+    return storage.getPendingListings();
   },
 
   findUserByEmail(email) {

@@ -3,7 +3,7 @@ import Listing from '../models/listing.model.js';
 import User from '../models/user.model.js';
 import { errorHandler } from '../utils/error.js';
 import { mockStore } from '../utils/mockStore.js';
-import { firebaseStore } from '../utils/firebaseStore.js';
+import { storage } from '../utils/storage.js';
 
 const isDbConnected = () => mongoose.connection.readyState === 1;
 
@@ -13,7 +13,7 @@ const isDbConnected = () => mongoose.connection.readyState === 1;
  */
 export const getAdminListings = async (req, res, next) => {
   try {
-    let list = firebaseStore.getListings({
+    let list = storage.getListings({
       all: 'true',
       isAdmin: 'true',
       onlyApproved: false,
@@ -45,34 +45,6 @@ export const getAdminListings = async (req, res, next) => {
     list.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
     return res.status(200).json(list);
   } catch (error) {
-    console.warn('firebaseStore getAdminListings error, fallback to mockStore:', error.message);
-  }
-
-  try {
-    let list = mockStore.getAllListings();
-    const catQuery = (req.query.category || req.query.type || '').toLowerCase();
-    if (catQuery === 'guesthouse' || catQuery === 'rent') {
-      list = list.filter((item) => item.category === 'guesthouse' || item.type === 'guesthouse' || item.type === 'rent');
-    } else if (catQuery === 'car' || catQuery === 'car_service' || catQuery === 'sale') {
-      list = list.filter((item) => item.category === 'car_service' || item.category === 'car' || item.type === 'car' || item.type === 'sale');
-    }
-
-    if (req.query.isApproved !== undefined) {
-      const filterApproved = req.query.isApproved === 'true';
-      list = list.filter((item) => {
-        const isAppr = Boolean(item.isApproved || item.status === 'approved');
-        return isAppr === filterApproved;
-      });
-    } else if (req.query.status === 'pending' || req.query.filter === 'pending') {
-      list = list.filter((item) => !item.isApproved || item.status === 'pending');
-    } else if (req.query.status === 'approved' || req.query.filter === 'approved') {
-      list = list.filter((item) => Boolean(item.isApproved || item.status === 'approved'));
-    } else if (req.query.status === 'rejected' || req.query.filter === 'rejected') {
-      list = list.filter((item) => item.status === 'rejected');
-    }
-    list.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-    return res.status(200).json(list);
-  } catch (error) {
     next(error);
   }
 };
@@ -87,16 +59,9 @@ export const getAllListings = getAdminListings;
  */
 export const getPendingListings = async (req, res, next) => {
   try {
-    const list = firebaseStore.getListings({ all: 'true', isAdmin: 'true', onlyApproved: false, limit: 500 });
+    const list = storage.getListings({ all: 'true', isAdmin: 'true', onlyApproved: false, limit: 500 });
     const pending = list.filter((item) => !item.isApproved || item.status === 'pending');
     return res.status(200).json(pending);
-  } catch (error) {
-    console.warn('firebaseStore getPendingListings notice, fallback to mockStore:', error.message);
-  }
-
-  try {
-    const mockListings = mockStore.getPendingListings();
-    return res.status(200).json(mockListings);
   } catch (error) {
     next(error);
   }
@@ -108,7 +73,10 @@ export const getPendingListings = async (req, res, next) => {
 export const approveListing = async (req, res, next) => {
   const id = req.params.id;
   try {
-    const updated = firebaseStore.approveListing(id);
+    const updated = storage.approveListing(id);
+    if (!updated) {
+      return next(errorHandler(404, 'Listing not found'));
+    }
     mockStore.updateListing(id, {
       isApproved: true,
       status: 'approved',
@@ -134,7 +102,10 @@ export const rejectListing = async (req, res, next) => {
   const id = req.params.id;
   const reason = req.body?.reason || req.body?.rejectionReason || 'Does not meet marketplace guidelines';
   try {
-    const updated = firebaseStore.rejectListing(id, reason);
+    const updated = storage.rejectListing(id, reason);
+    if (!updated) {
+      return next(errorHandler(404, 'Listing not found'));
+    }
     mockStore.updateListing(id, {
       isApproved: false,
       status: 'rejected',
@@ -157,7 +128,7 @@ export const rejectListing = async (req, res, next) => {
 export const toggleStatusListing = async (req, res, next) => {
   const id = req.params.id;
   try {
-    const existing = firebaseStore.getListing(id) || mockStore.getListing(id);
+    const existing = storage.getListing(id);
     if (!existing) {
       return next(errorHandler(404, 'Listing not found!'));
     }
@@ -169,7 +140,7 @@ export const toggleStatusListing = async (req, res, next) => {
         : true;
     const newActive = !currentActive;
 
-    const updated = firebaseStore.updateListing(id, {
+    const updated = storage.updateListing(id, {
       isActive: newActive,
       active: newActive,
     });
@@ -388,7 +359,7 @@ export const adminCreateListing = async (req, res, next) => {
       updatedAt: new Date().toISOString(),
     };
 
-    const listing = firebaseStore.createListing(listingData);
+    const listing = storage.createListing(listingData);
     mockStore.createListing(listingData);
 
     if (isDbConnected()) {
@@ -403,20 +374,14 @@ export const adminCreateListing = async (req, res, next) => {
 
 /**
  * DELETE /api/admin/listings/:id
- * Allows administrator to delete any current or future listing permanently from backend & Firestore.
+ * Allows administrator to delete any current or future listing permanently from backend & storage.
  */
 export const adminDeleteListing = async (req, res, next) => {
   const { id } = req.params;
   try {
-    console.log(`[Admin] Ultimate powers executed: Permanently deleting listing ${id} from backend database...`);
-
-    // 1. Delete from Firestore and in-memory cache
-    await firebaseStore.deleteListing(id);
-
-    // 2. Delete from mockStore cache
+    storage.deleteListing(id);
     mockStore.deleteListing(id);
 
-    // 3. Delete from MongoDB if connected
     if (isDbConnected()) {
       await Promise.allSettled([
         Listing.findByIdAndDelete(id),
@@ -442,24 +407,18 @@ export const adminDeleteListing = async (req, res, next) => {
 export const adminUpdateListing = async (req, res, next) => {
   const { id } = req.params;
   try {
-    const updated = firebaseStore.updateListing(id, req.body);
+    const updated = storage.updateListing(id, req.body);
+    if (!updated) {
+      return next(errorHandler(404, 'Listing not found!'));
+    }
     mockStore.updateListing(id, req.body);
     if (isDbConnected()) {
       Listing.findByIdAndUpdate(id, req.body, { new: true }).catch(() => {});
     }
-    if (updated) {
-      return res.status(200).json(updated);
-    }
+    return res.status(200).json(updated);
   } catch (error) {
-    console.warn('adminUpdateListing error, fallback to mockStore:', error.message);
+    next(error);
   }
-
-  const mockItem = mockStore.getListing(id);
-  if (!mockItem) {
-    return next(errorHandler(404, 'Listing not found!'));
-  }
-  const updated = mockStore.updateListing(id, req.body);
-  return res.status(200).json(updated);
 };
 
 /**
@@ -476,17 +435,8 @@ export const adminGetListing = async (req, res, next) => {
     return getAllListings(req, res, next);
   }
 
-  const item = firebaseStore.getListing(id) || mockStore.getListing(id);
+  const item = storage.getListing(id);
   if (item) return res.status(200).json(item);
-
-  try {
-    if (isDbConnected()) {
-      const listing = await Listing.findById(id);
-      if (listing) return res.status(200).json(listing);
-    }
-  } catch (error) {
-    console.warn('DB adminGetListing error, fallback to mockStore:', error.message);
-  }
 
   return next(errorHandler(404, 'Listing not found!'));
 };
