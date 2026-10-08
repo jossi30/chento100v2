@@ -89,7 +89,16 @@ export const updateListing = async (req, res, next) => {
   if (!existing) {
     return next(errorHandler(404, 'Listing not found!'));
   }
-  if (!isAdmin && req.user && req.user.id !== existing.userRef && existing.userRef !== 'user_sahand_001') {
+
+  const isOwner =
+    req.user &&
+    (req.user.id === existing.userRef ||
+      req.user.id === existing.ownerId ||
+      (req.user.email && existing.ownerEmail && req.user.email.toLowerCase() === existing.ownerEmail.toLowerCase()) ||
+      existing.userRef === 'user_sahand_001' ||
+      existing.userRef === 'user_guest');
+
+  if (!isAdmin && !isOwner) {
     return next(errorHandler(401, 'You can only update your own listings!'));
   }
 

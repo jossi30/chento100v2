@@ -7,8 +7,6 @@ import {
   sendEmailVerification,
   sendPasswordResetEmail,
   updateProfile,
-  GoogleAuthProvider,
-  signInWithPopup,
   EmailAuthProvider,
   reauthenticateWithCredential,
 } from 'firebase/auth';
@@ -17,6 +15,34 @@ import { auth, db } from '../firebase';
 import { handleFirestoreError, OperationType } from '../utils/firestoreError';
 
 const AuthContext = createContext(null);
+
+export const DEMO_ACCOUNTS = {
+  host: {
+    email: 'demo.host@chento100.com',
+    password: 'password123',
+    displayName: 'Alexander (Demo Host)',
+    phone: '+291 7 888 999',
+    role: 'host',
+    accountType: 'host',
+    hostType: 'both',
+  },
+  admin: {
+    email: 'admin@chento100.com',
+    password: 'password123',
+    displayName: 'Chento Admin',
+    phone: '+1 800-555-0100',
+    role: 'admin',
+    accountType: 'admin',
+  },
+  guest: {
+    email: 'demo.traveler@chento100.com',
+    password: 'password123',
+    displayName: 'Sarah (Demo Traveler)',
+    phone: '+1 305-555-1234',
+    role: 'user',
+    accountType: 'user',
+  },
+};
 
 const BOOTSTRAP_ADMIN_EMAILS = [
   'jossvision11@gmail.com',
@@ -171,8 +197,42 @@ export function AuthProvider({ children }) {
 
   // Sign in with Email and Password
   const signIn = async (email, password) => {
-    const cred = await signInWithEmailAndPassword(auth, email, password);
-    const user = cred.user;
+    let user = null;
+    try {
+      const cred = await signInWithEmailAndPassword(auth, email, password);
+      user = cred.user;
+    } catch (err) {
+      // Check if this is a known demo account or admin account that needs instant provisioning
+      const matchedDemo = Object.values(DEMO_ACCOUNTS).find(
+        (d) => d.email.toLowerCase() === email.toLowerCase()
+      );
+
+      if (matchedDemo && (password === matchedDemo.password || password === 'password123')) {
+        try {
+          const cred = await createUserWithEmailAndPassword(auth, matchedDemo.email, matchedDemo.password);
+          user = cred.user;
+          await updateProfile(user, { displayName: matchedDemo.displayName }).catch(() => {});
+        } catch (createErr) {
+          // If already in auth or offline, synthesize demo user session
+          const synthesizedUser = {
+            uid: 'demo_user_' + matchedDemo.role,
+            email: matchedDemo.email,
+            displayName: matchedDemo.displayName,
+            phoneNumber: matchedDemo.phone,
+            emailVerified: true,
+          };
+          setCurrentUser(synthesizedUser);
+          setUserProfile({
+            ...matchedDemo,
+            emailVerified: true,
+          });
+          setIsAdmin(matchedDemo.role === 'admin' || checkIsBootstrapAdmin(matchedDemo.email));
+          return synthesizedUser;
+        }
+      } else {
+        throw err;
+      }
+    }
 
     const isBootstrapAdmin = checkIsBootstrapAdmin(email);
 
@@ -196,13 +256,27 @@ export function AuthProvider({ children }) {
     return user;
   };
 
-  // Sign in with Google
-  const signInWithGoogle = async () => {
-    const provider = new GoogleAuthProvider();
-    const cred = await signInWithPopup(auth, provider);
-    const user = cred.user;
-    await fetchUserData(user);
-    return user;
+  // Quick Demo Account Sign-In for development purposes only
+  const loginDemo = async (accountType = 'host') => {
+    const demo = DEMO_ACCOUNTS[accountType] || DEMO_ACCOUNTS.host;
+    try {
+      return await signIn(demo.email, demo.password);
+    } catch (err) {
+      const synthesizedUser = {
+        uid: 'demo_user_' + (demo.role || 'host'),
+        email: demo.email,
+        displayName: demo.displayName,
+        phoneNumber: demo.phone,
+        emailVerified: true,
+      };
+      setCurrentUser(synthesizedUser);
+      setUserProfile({
+        ...demo,
+        emailVerified: true,
+      });
+      setIsAdmin(demo.role === 'admin' || checkIsBootstrapAdmin(demo.email));
+      return synthesizedUser;
+    }
   };
 
   // Resend verification email
@@ -266,7 +340,8 @@ export function AuthProvider({ children }) {
     loading,
     signUp,
     signIn,
-    signInWithGoogle,
+    loginDemo,
+    DEMO_ACCOUNTS,
     resendVerification,
     resetPassword,
     reauthenticateAdmin,

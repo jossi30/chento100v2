@@ -2,14 +2,13 @@ import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { signInStart, signInSuccess, signInFailure } from '../redux/user/userSlice';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, DEMO_ACCOUNTS } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
-import OAuth from '../components/OAuth';
-import { FaLock, FaEnvelope } from 'react-icons/fa';
+import { FaLock, FaEnvelope, FaBolt, FaHome, FaShieldAlt, FaUser } from 'react-icons/fa';
 
 export default function SignIn() {
   const { t } = useLanguage();
-  const { signIn } = useAuth();
+  const { signIn, loginDemo } = useAuth();
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -134,7 +133,7 @@ export default function SignIn() {
           <button
             type='submit'
             disabled={loading}
-            className='w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg text-sm transition shadow-sm disabled:opacity-50 cursor-pointer'
+            className='w-full py-3 bg-black hover:bg-neutral-800 text-white font-bold rounded-lg text-sm transition shadow-sm disabled:opacity-50 cursor-pointer'
           >
             {loading ? 'Signing in...' : t('signin.submitButton') || 'Sign In'}
           </button>

@@ -8,6 +8,7 @@ import adminRouter from './routes/admin.route.js';
 import cookieParser from 'cookie-parser';
 import path from 'path';
 import fs from 'fs';
+import { execSync } from 'child_process';
 
 import { initFirebaseStore, getFirebaseConfig } from './utils/firebaseStore.js';
 
@@ -74,8 +75,21 @@ app.use('/api/auth', authRouter);
 app.use('/api/listing', listingRouter);
 app.use('/api/admin', adminRouter);
 
-// Serve static admin app assets from admin-app/dist
+// Ensure static frontends exist before serving
 const adminDistPath = path.join(__dirname, 'admin-app', 'dist');
+const clientDistPath = path.join(__dirname, 'client', 'dist');
+
+if (!fs.existsSync(path.join(clientDistPath, 'index.html')) || !fs.existsSync(path.join(adminDistPath, 'index.html'))) {
+  console.log('[Startup] Frontend dist not found. Triggering build...');
+  try {
+    execSync('npm run build', { stdio: 'inherit' });
+    console.log('[Startup] Frontends built successfully.');
+  } catch (err) {
+    console.error('[Startup] Failed to build frontends:', err.message);
+  }
+}
+
+// Serve static admin app assets from admin-app/dist
 app.use('/admin', express.static(adminDistPath));
 app.get(['/admin', '/admin/*'], (req, res, next) => {
   const adminIndex = path.join(adminDistPath, 'index.html');
@@ -89,7 +103,6 @@ app.get(['/admin', '/admin/*'], (req, res, next) => {
 app.use('/images', express.static(path.join(__dirname, 'client', 'public', 'images')));
 
 // Serve static frontend assets from client/dist
-const clientDistPath = path.join(__dirname, 'client', 'dist');
 app.use(express.static(clientDistPath));
 
 app.get('*', (req, res) => {

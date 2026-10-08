@@ -408,14 +408,34 @@ export default function Listing() {
             )}
 
             {/* Price Header */}
-            <div className='border-b border-slate-100 pb-4'>
-              <span className='text-xs text-slate-400 font-semibold uppercase tracking-wider block'>Rate</span>
+            <div className='border-b border-slate-100 pb-4 space-y-2'>
+              <span className='text-xs text-slate-400 font-semibold uppercase tracking-wider block'>Rate &amp; Availability</span>
               <div className='flex items-baseline gap-1 mt-1'>
                 <span className='text-3xl font-black text-slate-900'>
                   {currency === 'USD' ? '$' : `${currency} `}
                   {price.toLocaleString()}
                 </span>
                 <span className='text-xs text-slate-500 font-medium'> / {priceUnit}</span>
+              </div>
+
+              {/* Live Availability Badge */}
+              <div className='pt-1'>
+                {listing.isAvailable !== false && listing.available !== false ? (
+                  <div className='inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800'>
+                    <span className='w-2 h-2 rounded-full bg-emerald-500 animate-pulse'></span>
+                    <span>🟢 Available for Booking</span>
+                  </div>
+                ) : (
+                  <div className='inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800'>
+                    <span className='w-2 h-2 rounded-full bg-rose-500'></span>
+                    <span>🔴 Currently Booked / Unavailable</span>
+                    {listing.availabilityNotes && (
+                      <span className='text-[10px] text-rose-600 block mt-0.5 font-normal'>
+                        ({listing.availabilityNotes})
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -444,7 +464,7 @@ export default function Listing() {
               {listing.contactPhone && (
                 <a
                   href={`tel:${cleanPhone}`}
-                  className='w-full py-3 px-4 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md transition'
+                  className='w-full py-3 px-4 bg-black hover:bg-neutral-800 text-white font-bold rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md transition'
                 >
                   <FaPhoneAlt className='text-xs' />
                   <span>Call {listing.contactPhone}</span>
@@ -458,11 +478,31 @@ export default function Listing() {
                 )}&body=${encodeURIComponent(
                   `Hello,\n\nI would like to inquire about availability and booking for "${listing.title}".\n\nListing link: ${window.location.href}`
                 )}`}
-                className='w-full py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 transition'
+                className='w-full py-3 px-4 bg-black hover:bg-neutral-800 text-white font-bold rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 transition border border-neutral-700 shadow-md'
               >
                 <FaEnvelope className='text-xs' />
                 <span>Send Email Inquiry</span>
               </a>
+
+              {/* Share Listing Button */}
+              <button
+                type='button'
+                onClick={() => {
+                  if (navigator.share) {
+                    navigator.share({
+                      title: listing.title,
+                      text: `Check out ${listing.title} on chento 100`,
+                      url: window.location.href,
+                    });
+                  } else {
+                    navigator.clipboard.writeText(window.location.href);
+                    alert('Listing link copied to clipboard!');
+                  }
+                }}
+                className='w-full py-2.5 px-4 bg-black hover:bg-neutral-800 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition border border-neutral-700 shadow-xs cursor-pointer'
+              >
+                <span>Share Listing Link</span>
+              </button>
             </div>
 
             {/* Safety badge */}

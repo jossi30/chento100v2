@@ -411,7 +411,7 @@ export default function Search() {
 
             <button
               type='submit'
-              className='w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg text-xs transition shadow-sm cursor-pointer'
+              className='w-full py-2.5 bg-black hover:bg-neutral-800 text-white font-bold rounded-lg text-xs transition shadow-sm cursor-pointer'
             >
               Apply Filters
             </button>
@@ -441,7 +441,7 @@ export default function Search() {
                     type='button'
                     onClick={handleLoadMore}
                     disabled={loadingMore}
-                    className='px-6 py-2.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 font-bold rounded-xl text-xs transition shadow-2xs disabled:opacity-60 cursor-pointer'
+                    className='px-6 py-2.5 bg-black hover:bg-neutral-800 text-white font-bold rounded-xl text-xs transition shadow-sm disabled:opacity-60 cursor-pointer'
                   >
                     {loadingMore ? 'Loading more listings...' : 'Load More Listings'}
                   </button>

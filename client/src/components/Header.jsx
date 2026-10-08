@@ -98,10 +98,10 @@ export default function Header() {
       badge: 'Hot',
     },
     {
-      to: '/create-listing',
-      label: 'Post a Listing',
+      to: '/partner',
+      label: 'Partner with Us',
       icon: FaPlus,
-      sublabel: 'Publish your house or car',
+      sublabel: 'Host portal & availability manager',
     },
     {
       to: '/about',
@@ -166,16 +166,16 @@ export default function Header() {
             </Link>
 
             <Link
-              to='/create-listing'
-              className='inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-slate-900 text-white hover:bg-slate-800 transition shadow-xs text-xs font-bold'
+              to='/partner'
+              className='inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-black text-white hover:bg-neutral-800 transition shadow-xs text-xs font-bold'
             >
               <FaPlus className='text-[10px]' />
-              <span>Post Listing</span>
+              <span>Partner with Us</span>
             </Link>
 
             {isAdmin && (
               <Link to='/admin-dashboard'>
-                <li className='flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full bg-slate-900 text-amber-300 hover:bg-slate-800 transition shadow-xs'>
+                <li className='flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full bg-black text-amber-300 hover:bg-neutral-800 transition shadow-xs'>
                   <FaShieldAlt className='text-xs' />
                   <span>Admin</span>
                 </li>
@@ -203,7 +203,7 @@ export default function Header() {
                   alt='profile'
                 />
               ) : (
-                <span className='text-slate-800 hover:text-slate-950 font-bold px-2 py-1'>
+                <span className='text-white bg-black hover:bg-neutral-800 font-bold text-xs px-3.5 py-1.5 rounded-full shadow-xs transition'>
                   Sign In
                 </span>
               )}
@@ -317,14 +317,14 @@ export default function Header() {
                   <Link
                     to='/sign-in'
                     onClick={() => setMobileMenuOpen(false)}
-                    className='py-2 px-3 text-center bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition'
+                    className='py-2 px-3 text-center bg-black text-white rounded-xl text-xs font-bold hover:bg-neutral-800 transition shadow-xs'
                   >
                     Sign In
                   </Link>
                   <Link
                     to='/sign-up'
                     onClick={() => setMobileMenuOpen(false)}
-                    className='py-2 px-3 text-center bg-white border border-slate-200 text-slate-900 rounded-xl text-xs font-bold hover:bg-slate-100 transition'
+                    className='py-2 px-3 text-center bg-black text-white rounded-xl text-xs font-bold hover:bg-neutral-800 transition shadow-xs'
                   >
                     Register
                   </Link>

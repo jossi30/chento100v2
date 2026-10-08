@@ -16,6 +16,17 @@ import {
   FaBed,
   FaBath,
   FaUserFriends,
+  FaShieldAlt,
+  FaPlaneDeparture,
+  FaCheckCircle,
+  FaUserCheck,
+  FaChevronDown,
+  FaKey,
+  FaClock,
+  FaStar,
+  FaArrowRight,
+  FaSuitcaseRolling,
+  FaCompass,
 } from 'react-icons/fa';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation, Pagination, Autoplay } from 'swiper/modules';
@@ -36,6 +47,12 @@ export default function Home() {
   // Search Bar State
   const [activeTab, setActiveTab] = useState('all'); // 'all' | 'guesthouse' | 'car'
   const [searchLocation, setSearchLocation] = useState('');
+
+  // Interactive FAQ Accordion State
+  const [openFaq, setOpenFaq] = useState(0);
+  const toggleFaq = (index) => {
+    setOpenFaq((prev) => (prev === index ? null : index));
+  };
 
   // Firestore live state
   const [bestOffers, setBestOffers] = useState([]);
@@ -91,8 +108,8 @@ export default function Home() {
   // Shared tab styles
   const tabBase =
     'flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-4 py-2 rounded-full text-xs font-medium transition cursor-pointer';
-  const tabActive = 'bg-neutral-900 text-white';
-  const tabIdle = 'text-neutral-500 hover:text-neutral-900';
+  const tabActive = 'bg-black text-white shadow-xs';
+  const tabIdle = 'text-neutral-600 hover:text-black hover:bg-neutral-100';
 
   return (
     <div className="flex flex-col gap-24 pb-24 bg-white text-neutral-900 font-['Inter_Tight','Inter',ui-sans-serif,system-ui,sans-serif]">
@@ -230,7 +247,7 @@ export default function Home() {
                           <div className='pt-1'>
                             <Link
                               to={`/listing/${offer.id}`}
-                              className='inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-white text-neutral-950 hover:bg-amber-300 font-bold text-xs shadow-md transition'
+                              className='inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-black text-white hover:bg-neutral-800 font-bold text-xs shadow-md transition border border-neutral-700'
                             >
                               <span>Explore Offer</span>
                               <span>→</span>
@@ -324,7 +341,7 @@ export default function Home() {
 
                 <button
                   type='submit'
-                  className='w-full sm:w-auto px-8 py-3 bg-neutral-900 hover:bg-neutral-700 text-white font-medium text-sm rounded-lg transition flex items-center justify-center gap-2 cursor-pointer'
+                  className='w-full sm:w-auto px-8 py-3 bg-black hover:bg-neutral-800 text-white font-bold text-sm rounded-lg transition flex items-center justify-center gap-2 cursor-pointer shadow-md'
                 >
                   <FaSearch />
                   <span>Search</span>
@@ -548,7 +565,7 @@ export default function Home() {
 
                             <Link
                               to={`/listing/${listing.id}`}
-                              className='px-3.5 py-1.5 bg-neutral-900 hover:bg-neutral-700 text-white text-xs font-semibold rounded-lg transition flex items-center gap-1 shadow-xs'
+                              className='px-3.5 py-1.5 bg-black hover:bg-neutral-800 text-white text-xs font-semibold rounded-lg transition flex items-center gap-1 shadow-xs'
                             >
                               <span>View Deal</span>
                               <span>→</span>
@@ -578,7 +595,7 @@ export default function Home() {
             </div>
             <Link
               to='/search?type=guesthouse'
-              className='text-xs font-medium text-neutral-900 border border-neutral-200 hover:border-neutral-900 px-4 py-2 rounded-md transition whitespace-nowrap'
+              className='text-xs font-semibold text-white bg-black hover:bg-neutral-800 px-4 py-2 rounded-lg transition whitespace-nowrap shadow-xs'
             >
               Show more guest houses →
             </Link>
@@ -608,11 +625,11 @@ export default function Home() {
               </p>
               <div className='pt-2'>
                 <Link
-                  to='/create-listing'
-                  className='inline-flex items-center gap-2 px-5 py-2.5 bg-neutral-900 hover:bg-neutral-700 text-white rounded-md text-xs font-medium transition'
+                  to='/partner'
+                  className='inline-flex items-center gap-2 px-5 py-2.5 bg-black hover:bg-neutral-800 text-white rounded-lg text-xs font-semibold transition shadow-xs'
                 >
                   <FaPlus className='text-xs' />
-                  <span>List a Guest House</span>
+                  <span>Partner with Us — List a Guest House</span>
                 </Link>
               </div>
             </div>
@@ -633,7 +650,7 @@ export default function Home() {
             </div>
             <Link
               to='/search?type=car'
-              className='text-xs font-medium text-neutral-900 border border-neutral-200 hover:border-neutral-900 px-4 py-2 rounded-md transition whitespace-nowrap'
+              className='text-xs font-semibold text-white bg-black hover:bg-neutral-800 px-4 py-2 rounded-lg transition whitespace-nowrap shadow-xs'
             >
               Show more vehicles →
             </Link>
@@ -663,11 +680,11 @@ export default function Home() {
               </p>
               <div className='pt-2'>
                 <Link
-                  to='/create-listing'
-                  className='inline-flex items-center gap-2 px-5 py-2.5 bg-neutral-900 hover:bg-neutral-700 text-white rounded-md text-xs font-medium transition'
+                  to='/partner'
+                  className='inline-flex items-center gap-2 px-5 py-2.5 bg-black hover:bg-neutral-800 text-white rounded-lg text-xs font-semibold transition shadow-xs'
                 >
                   <FaPlus className='text-xs' />
-                  <span>List a Vehicle</span>
+                  <span>Partner with Us — List a Vehicle</span>
                 </Link>
               </div>
             </div>
@@ -710,6 +727,547 @@ export default function Home() {
                   Hosts and drivers must confirm their email and credentials before submitting listings to protect guests and renters.
                 </p>
               </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Section 3: Popular Curated Destinations & Regional Hubs */}
+        <section className='border-t border-neutral-200 pt-16 space-y-8'>
+          <div className='flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-neutral-200 pb-4'>
+            <div>
+              <span className='text-xs uppercase tracking-wider text-neutral-400 font-semibold'>Regional Discovery</span>
+              <h2 className='text-2xl sm:text-3xl font-medium tracking-tight text-neutral-900 mt-1'>
+                Featured Destinations &amp; Travel Hubs
+              </h2>
+              <p className='text-xs text-neutral-500 mt-1'>
+                Explore boutique stays and book dependable chauffeurs across top regional hubs
+              </p>
+            </div>
+            <Link
+              to='/search'
+              className='text-xs font-semibold text-white bg-black hover:bg-neutral-800 px-4 py-2 rounded-lg transition whitespace-nowrap shadow-xs self-start sm:self-auto'
+            >
+              Explore all locations →
+            </Link>
+          </div>
+
+          <div className='grid grid-cols-1 md:grid-cols-3 gap-6'>
+            {/* Destination 1: Asmara Historic Downtown */}
+            <div className='group border border-neutral-200 rounded-3xl overflow-hidden hover:shadow-md transition-all duration-300 flex flex-col bg-white'>
+              <div className='relative h-52 w-full overflow-hidden bg-neutral-100'>
+                <img
+                  src='/images/destination_asmara_city.jpg'
+                  alt='Asmara Historic City Center'
+                  className='w-full h-full object-cover group-hover:scale-105 transition-transform duration-500'
+                  onError={(e) => {
+                    e.currentTarget.src = '/images/airbnb_apartment_living.jpg';
+                  }}
+                />
+                <div className='absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent' />
+                <div className='absolute bottom-3 left-4 right-4 text-white'>
+                  <span className='text-[11px] font-medium tracking-wide uppercase text-amber-300'>Capital District</span>
+                  <h3 className='text-lg font-medium text-white tracking-tight'>Asmara Downtown</h3>
+                </div>
+              </div>
+              <div className='p-5 flex-1 flex flex-col justify-between space-y-4'>
+                <div className='space-y-1.5'>
+                  <div className='flex items-center gap-2 text-xs text-neutral-500'>
+                    <span>UNESCO Art Deco</span>
+                    <span>·</span>
+                    <span>Café Culture</span>
+                    <span>·</span>
+                    <span>Airport Access</span>
+                  </div>
+                  <p className='text-xs text-neutral-600 leading-relaxed'>
+                    Stroll palm-lined avenues, Italian colonial architecture, and lively espresso cafes. Ideal for executive stays and diaspora visits.
+                  </p>
+                </div>
+                <div className='pt-2 flex items-center gap-2'>
+                  <Link
+                    to='/search?city=Asmara&type=guesthouse'
+                    className='flex-1 text-center py-2 px-3 bg-black hover:bg-neutral-800 text-white rounded-lg text-xs font-semibold transition shadow-xs'
+                  >
+                    View Stays
+                  </Link>
+                  <Link
+                    to='/search?city=Asmara&type=car'
+                    className='flex-1 text-center py-2 px-3 bg-black hover:bg-neutral-800 text-white rounded-lg text-xs font-semibold transition shadow-xs border border-neutral-700'
+                  >
+                    Chauffeur Car
+                  </Link>
+                </div>
+              </div>
+            </div>
+
+            {/* Destination 2: Massawa Red Sea Coast */}
+            <div className='group border border-neutral-200 rounded-3xl overflow-hidden hover:shadow-md transition-all duration-300 flex flex-col bg-white'>
+              <div className='relative h-52 w-full overflow-hidden bg-neutral-100'>
+                <img
+                  src='/images/zanzibar_guest_house.jpg'
+                  alt='Massawa Red Sea Coast'
+                  className='w-full h-full object-cover group-hover:scale-105 transition-transform duration-500'
+                  onError={(e) => {
+                    e.currentTarget.src = '/images/safari_land_cruiser.jpg';
+                  }}
+                />
+                <div className='absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent' />
+                <div className='absolute bottom-3 left-4 right-4 text-white'>
+                  <span className='text-[11px] font-medium tracking-wide uppercase text-amber-300'>Red Sea Coast</span>
+                  <h3 className='text-lg font-medium text-white tracking-tight'>Massawa Maritime Harbor</h3>
+                </div>
+              </div>
+              <div className='p-5 flex-1 flex flex-col justify-between space-y-4'>
+                <div className='space-y-1.5'>
+                  <div className='flex items-center gap-2 text-xs text-neutral-500'>
+                    <span>Coral Old Town</span>
+                    <span>·</span>
+                    <span>Beach Resorts</span>
+                    <span>·</span>
+                    <span>Island Trips</span>
+                  </div>
+                  <p className='text-xs text-neutral-600 leading-relaxed'>
+                    Historic maritime port with warm sea breezes, coastal retreats, and fresh seafood. Scenic 2.5h highway descent from Asmara.
+                  </p>
+                </div>
+                <div className='pt-2 flex items-center gap-2'>
+                  <Link
+                    to='/search?city=Massawa&type=guesthouse'
+                    className='flex-1 text-center py-2 px-3 bg-black hover:bg-neutral-800 text-white rounded-lg text-xs font-semibold transition shadow-xs'
+                  >
+                    View Stays
+                  </Link>
+                  <Link
+                    to='/search?city=Massawa&type=car'
+                    className='flex-1 text-center py-2 px-3 bg-black hover:bg-neutral-800 text-white rounded-lg text-xs font-semibold transition shadow-xs border border-neutral-700'
+                  >
+                    Hire 4x4 / Car
+                  </Link>
+                </div>
+              </div>
+            </div>
+
+            {/* Destination 3: Keren & Highland Escapes */}
+            <div className='group border border-neutral-200 rounded-3xl overflow-hidden hover:shadow-md transition-all duration-300 flex flex-col bg-white'>
+              <div className='relative h-52 w-full overflow-hidden bg-neutral-100'>
+                <img
+                  src='/images/savannah_safari_lodge.jpg'
+                  alt='Keren Highland Escapes'
+                  className='w-full h-full object-cover group-hover:scale-105 transition-transform duration-500'
+                  onError={(e) => {
+                    e.currentTarget.src = '/images/city_driver_car.jpg';
+                  }}
+                />
+                <div className='absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent' />
+                <div className='absolute bottom-3 left-4 right-4 text-white'>
+                  <span className='text-[11px] font-medium tracking-wide uppercase text-amber-300'>Northern Highlands</span>
+                  <h3 className='text-lg font-medium text-white tracking-tight'>Keren Mountain Valley</h3>
+                </div>
+              </div>
+              <div className='p-5 flex-1 flex flex-col justify-between space-y-4'>
+                <div className='space-y-1.5'>
+                  <div className='flex items-center gap-2 text-xs text-neutral-500'>
+                    <span>Valley Retreats</span>
+                    <span>·</span>
+                    <span>Citrus Orchards</span>
+                    <span>·</span>
+                    <span>Culture Markets</span>
+                  </div>
+                  <p className='text-xs text-neutral-600 leading-relaxed'>
+                    Tranquil valley celebrated for serene mountain scenery, friendly hospitality, and scenic highland driving routes.
+                  </p>
+                </div>
+                <div className='pt-2 flex items-center gap-2'>
+                  <Link
+                    to='/search?city=Keren&type=guesthouse'
+                    className='flex-1 text-center py-2 px-3 bg-black hover:bg-neutral-800 text-white rounded-lg text-xs font-semibold transition shadow-xs'
+                  >
+                    View Stays
+                  </Link>
+                  <Link
+                    to='/search?city=Keren&type=car'
+                    className='flex-1 text-center py-2 px-3 bg-black hover:bg-neutral-800 text-white rounded-lg text-xs font-semibold transition shadow-xs border border-neutral-700'
+                  >
+                    Book Driver
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Section 4: The chento 100 Experience — How It Works */}
+        <section className='border-t border-neutral-200 pt-16 space-y-10'>
+          <div className='max-w-2xl'>
+            <span className='text-xs uppercase tracking-wider text-neutral-400 font-semibold'>Simple &amp; Transparent</span>
+            <h2 className='text-3xl sm:text-4xl font-medium tracking-tighter text-neutral-900 mt-1'>
+              The chento 100 Experience
+            </h2>
+            <p className='text-xs sm:text-sm text-neutral-500 mt-2 leading-relaxed'>
+              Booking verified accommodations and dedicated private transportation takes just three simple steps.
+            </p>
+          </div>
+
+          <div className='grid grid-cols-1 md:grid-cols-3 gap-6'>
+            <div className='p-6 bg-neutral-50 border border-neutral-200 rounded-2xl space-y-3'>
+              <div className='w-9 h-9 rounded-full bg-neutral-900 text-white flex items-center justify-center text-xs font-bold'>
+                01
+              </div>
+              <h3 className='text-base font-semibold text-neutral-900'>Discover Handpicked Listings</h3>
+              <p className='text-xs text-neutral-500 leading-relaxed'>
+                Search through pre-screened boutique apartments, guest villas, and chauffeur-driven sedans or SUVs with transparent photos and clear pricing.
+              </p>
+            </div>
+
+            <div className='p-6 bg-neutral-50 border border-neutral-200 rounded-2xl space-y-3'>
+              <div className='w-9 h-9 rounded-full bg-neutral-900 text-white flex items-center justify-center text-xs font-bold'>
+                02
+              </div>
+              <h3 className='text-base font-semibold text-neutral-900'>Direct Host &amp; Driver Contact</h3>
+              <p className='text-xs text-neutral-500 leading-relaxed'>
+                Contact property managers or private chauffeurs directly via WhatsApp, phone, or instant on-site inquiry. No hidden broker charges.
+              </p>
+            </div>
+
+            <div className='p-6 bg-neutral-50 border border-neutral-200 rounded-2xl space-y-3'>
+              <div className='w-9 h-9 rounded-full bg-neutral-900 text-white flex items-center justify-center text-xs font-bold'>
+                03
+              </div>
+              <h3 className='text-base font-semibold text-neutral-900'>Guaranteed Moderation</h3>
+              <p className='text-xs text-neutral-500 leading-relaxed'>
+                Every listing is verified by our administration team before publishing. Rest easy knowing descriptions, amenities, and hosts are genuine.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* Section 5: VIP Airport Transfers & Executive Chauffeur Spotlight */}
+        <section className='border-t border-neutral-200 pt-16'>
+          <div className='bg-neutral-900 text-white rounded-3xl p-8 sm:p-12 lg:p-14 overflow-hidden relative shadow-lg'>
+            <div className='grid grid-cols-1 lg:grid-cols-12 gap-10 items-center'>
+              <div className='lg:col-span-7 space-y-6'>
+                <div className='inline-flex items-center gap-2 px-3 py-1 rounded-full bg-neutral-800 text-amber-300 text-xs font-medium'>
+                  <FaPlaneDeparture className='text-xs' />
+                  <span>VIP Airport Transfers &amp; Chauffeur Fleet</span>
+                </div>
+
+                <h2 className='text-3xl sm:text-4xl lg:text-5xl font-medium tracking-tight text-white leading-tight'>
+                  Executive Airport Transfers &amp; Private Mobility
+                </h2>
+
+                <p className='text-neutral-300 text-xs sm:text-sm leading-relaxed max-w-xl'>
+                  Arrive with complete peace of mind. Our verified private chauffeurs track your flight in real time, provide terminal meet-and-greets with personalized luggage assistance, and ensure smooth travel in pristine city sedans or executive 4x4 SUVs.
+                </p>
+
+                <div className='grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 text-xs text-neutral-300'>
+                  <div className='flex items-center gap-2.5'>
+                    <FaCheckCircle className='text-emerald-400 shrink-0' />
+                    <span>Flight arrival monitoring &amp; zero delay penalty</span>
+                  </div>
+                  <div className='flex items-center gap-2.5'>
+                    <FaCheckCircle className='text-emerald-400 shrink-0' />
+                    <span>Multilingual professional chauffeurs</span>
+                  </div>
+                  <div className='flex items-center gap-2.5'>
+                    <FaCheckCircle className='text-emerald-400 shrink-0' />
+                    <span>Fixed, transparent daily &amp; weekly rates</span>
+                  </div>
+                  <div className='flex items-center gap-2.5'>
+                    <FaCheckCircle className='text-emerald-400 shrink-0' />
+                    <span>Clean executive sedans &amp; Land Cruiser SUVs</span>
+                  </div>
+                </div>
+
+                <div className='pt-4 flex flex-wrap items-center gap-4'>
+                  <Link
+                    to='/search?type=car'
+                    className='px-6 py-3 bg-black text-white hover:bg-neutral-800 rounded-xl text-xs font-bold transition inline-flex items-center gap-2 shadow-md border border-neutral-700'
+                  >
+                    <span>Reserve a Chauffeur Vehicle</span>
+                    <FaArrowRight className='text-[10px]' />
+                  </Link>
+                  <Link
+                    to='/contact'
+                    className='px-6 py-3 bg-black hover:bg-neutral-800 text-white rounded-xl text-xs font-bold transition border border-neutral-700 shadow-md'
+                  >
+                    Custom Itinerary Request
+                  </Link>
+                </div>
+              </div>
+
+              <div className='lg:col-span-5 relative'>
+                <div className='relative rounded-2xl overflow-hidden shadow-2xl border border-neutral-700 aspect-[4/3] bg-neutral-800'>
+                  <img
+                    src='/images/vip_chauffeur_concierge.jpg'
+                    alt='Executive Chauffeur Concierge'
+                    className='w-full h-full object-cover'
+                    onError={(e) => {
+                      e.currentTarget.src = '/images/city_driver_car.jpg';
+                    }}
+                  />
+                  <div className='absolute bottom-3 left-3 right-3 p-3 bg-neutral-950/80 backdrop-blur-md rounded-xl border border-neutral-700 text-xs flex items-center justify-between'>
+                    <div className='flex items-center gap-2'>
+                      <span className='w-2 h-2 rounded-full bg-emerald-400 animate-pulse' />
+                      <span className='text-white font-medium'>24/7 Airport Concierge</span>
+                    </div>
+                    <span className='text-neutral-400 text-[11px]'>Door-to-door service</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Section 6: Host & Chauffeur Fleet Onboarding Banner */}
+        <section className='border-t border-neutral-200 pt-16'>
+          <div className='bg-neutral-50 border border-neutral-200 rounded-3xl p-8 sm:p-12 lg:p-14 overflow-hidden'>
+            <div className='grid grid-cols-1 lg:grid-cols-12 gap-10 items-center'>
+              <div className='lg:col-span-5 order-2 lg:order-1'>
+                <div className='rounded-2xl overflow-hidden shadow-sm border border-neutral-200 aspect-[4/3] bg-neutral-200'>
+                  <img
+                    src='/images/host_partner_boutique.jpg'
+                    alt='Welcome Guests as a chento 100 Host'
+                    className='w-full h-full object-cover'
+                    onError={(e) => {
+                      e.currentTarget.src = '/images/airbnb_apartment_bed.jpg';
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className='lg:col-span-7 order-1 lg:order-2 space-y-5'>
+                <span className='text-xs uppercase tracking-wider text-neutral-400 font-semibold'>Partner with chento 100</span>
+                <h2 className='text-3xl sm:text-4xl font-medium tracking-tight text-neutral-900 leading-tight'>
+                  Earn with Your Guest House or Private Vehicle
+                </h2>
+                <p className='text-xs sm:text-sm text-neutral-600 leading-relaxed'>
+                  Whether you own a furnished city studio, a family guest villa, or operate a chauffeured vehicle fleet, chento 100 connects you with qualified local and diaspora travelers. Our administration validates listings while you maintain complete control over direct customer bookings.
+                </p>
+
+                <div className='space-y-2.5 pt-1 text-xs text-neutral-700'>
+                  <div className='flex items-center gap-2.5'>
+                    <FaCheckCircle className='text-neutral-900 shrink-0' />
+                    <span>Direct guest communication via phone or WhatsApp — zero platform commissions</span>
+                  </div>
+                  <div className='flex items-center gap-2.5'>
+                    <FaCheckCircle className='text-neutral-900 shrink-0' />
+                    <span>Swift 24-hour administration review and live listing publication</span>
+                  </div>
+                  <div className='flex items-center gap-2.5'>
+                    <FaCheckCircle className='text-neutral-900 shrink-0' />
+                    <span>Manage availability, prices, and high-resolution photo galleries easily</span>
+                  </div>
+                </div>
+
+                <div className='pt-3'>
+                  <Link
+                    to='/partner'
+                    className='inline-flex items-center gap-2 px-6 py-3 bg-black hover:bg-neutral-800 text-white rounded-xl text-xs font-bold transition shadow-md'
+                  >
+                    <FaPlus className='text-xs' />
+                    <span>Partner with Us — Open Host Portal →</span>
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Section 7: Traveler Experiences & Attributable Reviews */}
+        <section className='border-t border-neutral-200 pt-16 space-y-10'>
+          <div className='flex flex-col sm:flex-row sm:items-end justify-between gap-4'>
+            <div>
+              <span className='text-xs uppercase tracking-wider text-neutral-400 font-semibold'>Verified Experiences</span>
+              <h2 className='text-3xl sm:text-4xl font-medium tracking-tight text-neutral-900 mt-1'>
+                Trusted by Travelers &amp; Families
+              </h2>
+              <p className='text-xs text-neutral-500 mt-1'>
+                Real feedback from diaspora visitors, business executives, and international travelers
+              </p>
+            </div>
+            <div className='text-xs text-neutral-500 flex items-center gap-1.5'>
+              <div className='flex text-amber-400 text-sm'>
+                <FaStar /><FaStar /><FaStar /><FaStar /><FaStar />
+              </div>
+              <span className='font-semibold text-neutral-900 ml-1'>4.9 / 5.0</span>
+              <span>· Verified Stays</span>
+            </div>
+          </div>
+
+          <div className='grid grid-cols-1 md:grid-cols-3 gap-6'>
+            {/* Review 1 */}
+            <div className='p-6 bg-white border border-neutral-200 rounded-3xl space-y-4 shadow-2xs flex flex-col justify-between'>
+              <div className='space-y-3'>
+                <div className='flex text-amber-400 text-xs'>
+                  <FaStar /><FaStar /><FaStar /><FaStar /><FaStar />
+                </div>
+                <p className='text-xs text-neutral-700 leading-relaxed italic'>
+                  &ldquo;Finding a reliable 3-bedroom guest house in Asmara with 24/7 backup power and fast Wi-Fi for my family used to take days of calling around. On chento 100, we contacted the host directly and the villa was immaculate.&rdquo;
+                </p>
+              </div>
+              <div className='pt-4 border-t border-neutral-100 flex items-center gap-3'>
+                <div className='w-9 h-9 rounded-full bg-neutral-900 text-white font-semibold text-xs flex items-center justify-center'>
+                  SK
+                </div>
+                <div>
+                  <h4 className='text-xs font-semibold text-neutral-900'>Sarah K.</h4>
+                  <p className='text-[11px] text-neutral-500'>Stockholm, Sweden · Family Guest Stay</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Review 2 */}
+            <div className='p-6 bg-white border border-neutral-200 rounded-3xl space-y-4 shadow-2xs flex flex-col justify-between'>
+              <div className='space-y-3'>
+                <div className='flex text-amber-400 text-xs'>
+                  <FaStar /><FaStar /><FaStar /><FaStar /><FaStar />
+                </div>
+                <p className='text-xs text-neutral-700 leading-relaxed italic'>
+                  &ldquo;I booked an executive Prado with chauffeur for an 8-day corporate mission. Marcus Vance was waiting at airport arrivals with our name board. Punctual, discreet, and navigated city meetings effortlessly.&rdquo;
+                </p>
+              </div>
+              <div className='pt-4 border-t border-neutral-100 flex items-center gap-3'>
+                <div className='w-9 h-9 rounded-full bg-neutral-900 text-white font-semibold text-xs flex items-center justify-center'>
+                  MT
+                </div>
+                <div>
+                  <h4 className='text-xs font-semibold text-neutral-900'>Michael Tekle</h4>
+                  <p className='text-[11px] text-neutral-500'>London, UK · Corporate Mobility</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Review 3 */}
+            <div className='p-6 bg-white border border-neutral-200 rounded-3xl space-y-4 shadow-2xs flex flex-col justify-between'>
+              <div className='space-y-3'>
+                <div className='flex text-amber-400 text-xs'>
+                  <FaStar /><FaStar /><FaStar /><FaStar /><FaStar />
+                </div>
+                <p className='text-xs text-neutral-700 leading-relaxed italic'>
+                  &ldquo;The pre-moderation gives you real reassurance. Knowing that administration checks every property before it is posted meant zero unpleasant surprises. Will definitely book through chento 100 again.&rdquo;
+                </p>
+              </div>
+              <div className='pt-4 border-t border-neutral-100 flex items-center gap-3'>
+                <div className='w-9 h-9 rounded-full bg-neutral-900 text-white font-semibold text-xs flex items-center justify-center'>
+                  ER
+                </div>
+                <div>
+                  <h4 className='text-xs font-semibold text-neutral-900'>Elena &amp; Marco R.</h4>
+                  <p className='text-[11px] text-neutral-500'>Milan, Italy · Boutique Studio Stay</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Quantitative Proof Metric Ribbon */}
+          <div className='p-6 bg-neutral-50 border border-neutral-200 rounded-2xl grid grid-cols-2 sm:grid-cols-4 gap-4 text-center'>
+            <div>
+              <div className='text-xl sm:text-2xl font-bold text-neutral-900'>4.9 / 5</div>
+              <div className='text-[11px] text-neutral-500 mt-0.5'>Average Guest Rating</div>
+            </div>
+            <div>
+              <div className='text-xl sm:text-2xl font-bold text-neutral-900'>100%</div>
+              <div className='text-[11px] text-neutral-500 mt-0.5'>Admin Pre-moderated</div>
+            </div>
+            <div>
+              <div className='text-xl sm:text-2xl font-bold text-neutral-900'>&lt; 24h</div>
+              <div className='text-[11px] text-neutral-500 mt-0.5'>Listing Review Turnaround</div>
+            </div>
+            <div>
+              <div className='text-xl sm:text-2xl font-bold text-neutral-900'>0%</div>
+              <div className='text-[11px] text-neutral-500 mt-0.5'>Broker Commission Cut</div>
+            </div>
+          </div>
+        </section>
+
+        {/* Section 8: Frequently Asked Questions (Interactive Accordion) */}
+        <section className='border-t border-neutral-200 pt-16 space-y-8'>
+          <div className='max-w-2xl'>
+            <span className='text-xs uppercase tracking-wider text-neutral-400 font-semibold'>Clarifications &amp; Help</span>
+            <h2 className='text-3xl sm:text-4xl font-medium tracking-tight text-neutral-900 mt-1'>
+              Frequently Asked Questions
+            </h2>
+            <p className='text-xs sm:text-sm text-neutral-500 mt-2 leading-relaxed'>
+              Clear answers to common questions about booking stays, reserving chauffeurs, and host terms.
+            </p>
+          </div>
+
+          <div className='space-y-3 max-w-4xl'>
+            {[
+              {
+                q: 'How does booking a private car with driver work?',
+                a: 'Browse the car leasing section, choose the vehicle that fits your party size and itinerary, and click to view listing details. You can call, message via WhatsApp, or send an instant inquiry directly to the driver or fleet manager. Confirm pickup dates, itinerary, and whether fuel is included.',
+              },
+              {
+                q: 'Are the guest houses and vehicles verified before being listed?',
+                a: 'Yes. Every single listing submitted to chento 100 is manually reviewed by our administrative moderation team. We verify that photos represent real properties, amenities match descriptions, and hosts provide valid contact details.',
+              },
+              {
+                q: 'How do payments work between guests and hosts?',
+                a: 'chento 100 facilitates transparent, direct connections between guests and verified hosts or chauffeurs. You pay the host directly upon check-in or via mutually agreed payment methods (cash, local transfer, or international wire) without hidden platform surcharges.',
+              },
+              {
+                q: 'Can I arrange an airport transfer before landing in Asmara?',
+                a: 'Yes! Simply select a vehicle with chauffeur, contact the driver with your flight details (airline and arrival time), and request terminal pickup. The driver will be stationed in the arrival hall holding a personalized name board.',
+              },
+              {
+                q: 'How do I list my guest house or chauffeur vehicle on chento 100?',
+                a: "Click 'List Your Property / Vehicle' in the top navigation or footer. Complete the listing form with photos, pricing, and amenities. Our administrators review the submission within 24 hours and publish it to the live marketplace.",
+              },
+            ].map((faq, idx) => {
+              const isOpen = openFaq === idx;
+              return (
+                <div
+                  key={idx}
+                  className='border border-neutral-200 rounded-2xl overflow-hidden bg-white transition-colors'
+                >
+                  <button
+                    type='button'
+                    onClick={() => toggleFaq(idx)}
+                    className='w-full p-5 text-left flex items-center justify-between gap-4 font-medium text-sm sm:text-base text-neutral-900 hover:text-neutral-700 transition'
+                    aria-expanded={isOpen}
+                  >
+                    <span>{faq.q}</span>
+                    <FaChevronDown
+                      className={`text-xs text-neutral-400 transition-transform duration-200 shrink-0 ${
+                        isOpen ? 'transform rotate-180 text-neutral-900' : ''
+                      }`}
+                    />
+                  </button>
+                  {isOpen && (
+                    <div className='px-5 pb-5 pt-1 text-xs sm:text-sm text-neutral-600 leading-relaxed border-t border-neutral-100 bg-neutral-50/50'>
+                      {faq.a}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* Section 9: Concierge Assistance & Custom Group Bookings CTA */}
+        <section className='border-t border-neutral-200 pt-16'>
+          <div className='p-8 sm:p-12 bg-neutral-900 text-white rounded-3xl flex flex-col md:flex-row items-start md:items-center justify-between gap-8'>
+            <div className='space-y-2 max-w-xl'>
+              <h3 className='text-2xl sm:text-3xl font-medium tracking-tight text-white'>
+                Need Personalized Travel or Long-Term Stay Assistance?
+              </h3>
+              <p className='text-xs sm:text-sm text-neutral-300 leading-relaxed'>
+                Our dedicated concierge desk coordinates long-term corporate guest house rentals, multi-vehicle convoys for diplomatic delegations, and custom cross-country travel itineraries.
+              </p>
+            </div>
+            <div className='flex flex-wrap items-center gap-3 shrink-0'>
+              <Link
+                to='/contact'
+                className='px-5 py-2.5 bg-black text-white hover:bg-neutral-800 rounded-xl text-xs font-bold transition border border-neutral-700 shadow-md'
+              >
+                Contact Concierge Desk
+              </Link>
+              <Link
+                to='/search'
+                className='px-5 py-2.5 bg-black hover:bg-neutral-800 text-white border border-neutral-700 rounded-xl text-xs font-bold transition shadow-md'
+              >
+                Browse Marketplace
+              </Link>
             </div>
           </div>
         </section>

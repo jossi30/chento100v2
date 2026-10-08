@@ -56,6 +56,11 @@ export default function ListingItem({ listing, showStatus = false, onEdit, onArc
               Featured
             </span>
           )}
+          {listing && (listing.isAvailable === false || listing.available === false) && (
+            <span className='bg-rose-600/90 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow-sm'>
+              Booked
+            </span>
+          )}
         </div>
 
         {/* Status Badge (for owner dashboard) */}
@@ -137,7 +142,7 @@ export default function ListingItem({ listing, showStatus = false, onEdit, onArc
 
           <Link
             to={`/listing/${listingId}`}
-            className='text-xs font-semibold text-slate-900 group-hover:text-amber-600 transition flex items-center gap-1'
+            className='px-3.5 py-1.5 bg-black hover:bg-neutral-800 text-white rounded-lg text-xs font-semibold transition flex items-center gap-1 shadow-xs'
           >
             <span>View</span>
             <span>→</span>

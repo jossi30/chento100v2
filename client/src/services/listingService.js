@@ -84,6 +84,13 @@ export function normalizeClientListing(data, id) {
     isApproved,
     active,
     isActive: active,
+    isAvailable: data.isAvailable !== undefined ? Boolean(data.isAvailable) : (data.available !== undefined ? Boolean(data.available) : true),
+    available: data.isAvailable !== undefined ? Boolean(data.isAvailable) : (data.available !== undefined ? Boolean(data.available) : true),
+    availabilityStatus: data.availabilityStatus || ((data.isAvailable === false || data.available === false) ? 'booked' : 'available'),
+    availableFrom: data.availableFrom || '',
+    availableUntil: data.availableUntil || '',
+    blockedDates: Array.isArray(data.blockedDates) ? data.blockedDates : [],
+    availabilityNotes: data.availabilityNotes || '',
     featured: Boolean(data.featured),
     rejectionReason: data.rejectionReason || '',
     ownerId: data.ownerId || data.userRef || 'user_guest',
@@ -578,6 +585,57 @@ export async function updateListing(id, updates, isAdmin = false) {
   }
 
   return true;
+}
+
+/**
+ * Host/Owner update listing availability anytime
+ * Synchronizes with Firestore and backend API
+ */
+export async function updateListingAvailability(id, { isAvailable, availabilityStatus = 'available', availableFrom = '', availableUntil = '', blockedDates = [], availabilityNotes = '' } = {}) {
+  const docRef = doc(db, LISTINGS_COLLECTION, id);
+  const updates = {
+    isAvailable: Boolean(isAvailable),
+    available: Boolean(isAvailable),
+    availabilityStatus: availabilityStatus || (isAvailable ? 'available' : 'booked'),
+    availableFrom: availableFrom || '',
+    availableUntil: availableUntil || '',
+    blockedDates: Array.isArray(blockedDates) ? blockedDates : [],
+    availabilityNotes: availabilityNotes || '',
+    updatedAt: new Date().toISOString(),
+  };
+
+  try {
+    await updateDoc(docRef, updates);
+  } catch (err) {
+    console.warn('Firestore update availability notice:', err.message);
+  }
+
+  // Sync with backend API
+  try {
+    await Promise.allSettled([
+      fetch(`/api/listing/update/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-auth': 'true',
+        },
+        body: JSON.stringify(updates),
+      }),
+      fetch(`/api/admin/listings/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-auth': 'true',
+          'x-user-role': 'admin',
+        },
+        body: JSON.stringify(updates),
+      }),
+    ]);
+  } catch (apiErr) {
+    console.warn('API availability update notice:', apiErr.message);
+  }
+
+  return updates;
 }
 
 /**

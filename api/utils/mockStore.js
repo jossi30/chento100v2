@@ -60,6 +60,27 @@ const seedUsersData = [
   },
   // HOSTS (Service Providers: Guest House Hosts & Car/Driver Chauffeur Hosts)
   {
+    _id: 'host_demo_001',
+    username: 'Alexander (Demo Host)',
+    displayName: 'Alexander (Demo Host)',
+    email: 'demo.host@chento100.com',
+    phone: '+291 7 888 999',
+    phoneNumber: '+291 7 888 999',
+    password: bcryptjs.hashSync('password123', 10),
+    role: 'host',
+    isAdmin: false,
+    accountType: 'host',
+    hostType: 'both',
+    serviceCategory: 'both',
+    businessName: 'Asmara Sunset Guest Houses & Fleet',
+    verified: true,
+    emailVerified: true,
+    listingsCount: 2,
+    avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=300&q=80',
+    createdAt: new Date('2024-03-01').toISOString(),
+    updatedAt: new Date('2024-03-01').toISOString(),
+  },
+  {
     _id: 'host_elena_001',
     username: 'Elena Rostova',
     displayName: 'Elena Rostova',
@@ -494,7 +515,9 @@ for (const listing of initialListings) {
   if (listing.price === undefined && listing.regularPrice !== undefined) listing.price = listing.regularPrice;
   if (!listing.imageURLs && listing.imageUrls) listing.imageURLs = listing.imageUrls;
   if (!listing.imageUrls && listing.imageURLs) listing.imageUrls = listing.imageURLs;
-  mockListings.set(listing._id, listing);
+  if (!storage.getListing(listing._id)) {
+    storage.createListing(listing);
+  }
 }
 
 export const mockStore = {

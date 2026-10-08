@@ -1,0 +1,1967 @@
+import { useState, useEffect, useCallback } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import {
+  getUserListings,
+  createListing,
+  updateListingAvailability,
+  deleteListing,
+} from '../services/listingService';
+import {
+  FaHome,
+  FaCar,
+  FaCheckCircle,
+  FaShieldAlt,
+  FaCalendarAlt,
+  FaShareAlt,
+  FaPlus,
+  FaEye,
+  FaTrash,
+  FaEdit,
+  FaWhatsapp,
+  FaCopy,
+  FaCheck,
+  FaPhoneAlt,
+  FaEnvelope,
+  FaUser,
+  FaLock,
+  FaMapMarkerAlt,
+  FaBed,
+  FaBath,
+  FaTag,
+  FaInfoCircle,
+  FaTimes,
+  FaCamera,
+  FaStar,
+  FaArrowRight,
+  FaGlobe,
+} from 'react-icons/fa';
+
+export default function Partner() {
+  const { currentUser, userProfile, signUp, signIn, loginDemo } = useAuth();
+  const navigate = useNavigate();
+
+  // Mode: if signed in, show portal; if not, show registration / sign-in
+  const [authMode, setAuthMode] = useState('register'); // 'register' | 'signin'
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState('');
+
+  // Host Registration Form State
+  const [regName, setRegName] = useState('');
+  const [regEmail, setRegEmail] = useState('');
+  const [regPhone, setRegPhone] = useState('');
+  const [regPassword, setRegPassword] = useState('');
+  const [regPartnerType, setRegPartnerType] = useState('both'); // 'guesthouse' | 'car' | 'both'
+  const [regCity, setRegCity] = useState('Asmara');
+
+  // Sign In Form State
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+
+  // Portal State
+  const [portalTab, setPortalTab] = useState('listings'); // 'listings' | 'new_house' | 'new_car' | 'availability'
+  const [listings, setListings] = useState([]);
+  const [loadingListings, setLoadingListings] = useState(false);
+  const [listingFilter, setListingFilter] = useState('all'); // 'all' | 'guesthouse' | 'car'
+
+  // Toast / Feedback State
+  const [toastMessage, setToastMessage] = useState('');
+  const showToast = (msg) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(''), 4000);
+  };
+
+  // Share Modal State
+  const [shareModalListing, setShareModalListing] = useState(null);
+  const [copiedLink, setCopiedLink] = useState(false);
+
+  // Availability Date Range Modal State
+  const [availModalListing, setAvailModalListing] = useState(null);
+  const [blockFromDate, setBlockFromDate] = useState('');
+  const [blockToDate, setBlockToDate] = useState('');
+  const [blockReason, setBlockReason] = useState('Reserved');
+
+  // New Guest House Form State
+  const [ghForm, setGhForm] = useState({
+    title: '',
+    description: '',
+    address: '',
+    city: 'Asmara',
+    price: 65,
+    bedrooms: 2,
+    bathrooms: 1,
+    maxGuests: 4,
+    amenities: 'WiFi, Air Conditioning, Hot Water, Backup Generator, Kitchen',
+    imageUrls: [
+      '/images/airbnb_apartment_living.jpg',
+      '/images/airbnb_apartment_bed.jpg',
+    ],
+    customImageUrl: '',
+  });
+
+  // New Car Form State
+  const [carForm, setCarForm] = useState({
+    title: '',
+    make: 'Toyota',
+    model: 'Land Cruiser Prado',
+    year: 2022,
+    description: '',
+    city: 'Asmara',
+    price: 90,
+    seats: 5,
+    transmission: 'Automatic',
+    driverIncluded: true,
+    driverName: '',
+    driverContact: '',
+    imageUrls: [
+      '/images/prado_chauffeur_suv.jpg',
+      '/images/city_regular_sedan.jpg',
+    ],
+    customImageUrl: '',
+  });
+
+  const [formSubmitting, setFormSubmitting] = useState(false);
+
+  // Load Host Listings when signed in
+  const loadHostListings = useCallback(async () => {
+    if (!currentUser) return;
+    setLoadingListings(true);
+    try {
+      const data = await getUserListings(currentUser.uid);
+      setListings(data || []);
+    } catch (err) {
+      console.warn('Error loading host listings:', err.message);
+    } finally {
+      setLoadingListings(false);
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (currentUser) {
+      loadHostListings();
+      // Pre-fill forms with user profile if available
+      if (userProfile?.displayName) {
+        setCarForm((prev) => ({ ...prev, driverName: userProfile.displayName }));
+      }
+      if (userProfile?.phone) {
+        setCarForm((prev) => ({ ...prev, driverContact: userProfile.phone }));
+      }
+    }
+  }, [currentUser, userProfile, loadHostListings]);
+
+  // Handle Host Registration
+  const handleRegisterSubmit = async (e) => {
+    e.preventDefault();
+    setAuthError('');
+    if (!regName.trim() || !regEmail.trim() || !regPhone.trim() || !regPassword) {
+      setAuthError('Please fill in your name, email, phone number, and password.');
+      return;
+    }
+
+    if (regPassword.length < 6) {
+      setAuthError('Password must be at least 6 characters long.');
+      return;
+    }
+
+    setAuthLoading(true);
+    try {
+      // 1. Firebase Auth Registration
+      const user = await signUp(regEmail.trim(), regPassword, regName.trim(), regPhone.trim());
+
+      // 2. Sync to Backend API
+      try {
+        await fetch('/api/auth/signup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: regName.trim(),
+            name: regName.trim(),
+            displayName: regName.trim(),
+            email: regEmail.trim(),
+            password: regPassword,
+            phone: regPhone.trim(),
+            phoneNumber: regPhone.trim(),
+            role: 'host',
+            accountType: 'host',
+            hostType: regPartnerType,
+            city: regCity,
+          }),
+        });
+      } catch (apiErr) {
+        console.warn('Backend sync note:', apiErr.message);
+      }
+
+      showToast(`Welcome ${regName.trim()}! You are now registered as a Partner Host.`);
+      setPortalTab('listings');
+    } catch (err) {
+      console.error('Host registration error:', err);
+      setAuthError(err.message || 'Failed to register. Please check your details.');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  // Handle Host Sign In
+  const handleSignInSubmit = async (e) => {
+    e.preventDefault();
+    setAuthError('');
+    if (!loginEmail.trim() || !loginPassword) {
+      setAuthError('Please provide both email and password.');
+      return;
+    }
+
+    setAuthLoading(true);
+    try {
+      await signIn(loginEmail.trim(), loginPassword);
+      showToast('Signed in successfully! Welcome to your Partner Portal.');
+      setPortalTab('listings');
+    } catch (err) {
+      console.error('Sign in error:', err);
+      setAuthError(err.message || 'Invalid email or password.');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  // Quick Demo Host Sign In for Development
+  const handleDemoSignIn = async () => {
+    setAuthError('');
+    setAuthLoading(true);
+    try {
+      await loginDemo('host');
+      showToast('⚡ Signed in with Demo Host Account! Welcome to the Partner Portal.');
+      setPortalTab('listings');
+    } catch (err) {
+      console.error('Demo sign in error:', err);
+      setAuthError(err.message || 'Failed to sign in with demo account.');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  // Toggle Availability Instantly
+  const handleToggleAvailability = async (listing) => {
+    const newIsAvailable = listing.isAvailable === false || listing.available === false ? true : false;
+    const newStatus = newIsAvailable ? 'available' : 'booked';
+
+    // Optimistic UI update
+    setListings((prev) =>
+      prev.map((item) =>
+        item.id === listing.id
+          ? {
+              ...item,
+              isAvailable: newIsAvailable,
+              available: newIsAvailable,
+              availabilityStatus: newStatus,
+            }
+          : item
+      )
+    );
+
+    try {
+      await updateListingAvailability(listing.id, {
+        isAvailable: newIsAvailable,
+        availabilityStatus: newStatus,
+      });
+      showToast(
+        newIsAvailable
+          ? `🟢 "${listing.title || listing.name}" is now marked as Available!`
+          : `🔴 "${listing.title || listing.name}" is now marked as Unavailable / Blocked.`
+      );
+    } catch (err) {
+      console.error('Error toggling availability:', err);
+      showToast('Could not update availability. Please try again.');
+      loadHostListings();
+    }
+  };
+
+  // Set Custom Blocked Date Range
+  const handleSaveBlockDates = async (e) => {
+    e.preventDefault();
+    if (!availModalListing) return;
+
+    if (!blockFromDate || !blockToDate) {
+      showToast('Please select both start and end dates.');
+      return;
+    }
+
+    const listingId = availModalListing.id;
+    const dateRangeNote = `${blockFromDate} to ${blockToDate} (${blockReason})`;
+
+    // Optimistic UI update
+    setListings((prev) =>
+      prev.map((item) =>
+        item.id === listingId
+          ? {
+              ...item,
+              isAvailable: false,
+              available: false,
+              availabilityStatus: 'booked',
+              availableFrom: blockFromDate,
+              availableUntil: blockToDate,
+              availabilityNotes: dateRangeNote,
+            }
+          : item
+      )
+    );
+
+    try {
+      await updateListingAvailability(listingId, {
+        isAvailable: false,
+        availabilityStatus: 'booked',
+        availableFrom: blockFromDate,
+        availableUntil: blockToDate,
+        availabilityNotes: dateRangeNote,
+        blockedDates: [
+          ...(availModalListing.blockedDates || []),
+          { from: blockFromDate, to: blockToDate, reason: blockReason },
+        ],
+      });
+      showToast(`Dates blocked for "${availModalListing.title}" (${dateRangeNote})`);
+      setAvailModalListing(null);
+      setBlockFromDate('');
+      setBlockToDate('');
+    } catch (err) {
+      console.error('Error setting blocked dates:', err);
+      showToast('Failed to save date block.');
+      loadHostListings();
+    }
+  };
+
+  // Create Guest House Listing
+  const handleCreateGuestHouse = async (e) => {
+    e.preventDefault();
+    if (!ghForm.title.trim()) {
+      showToast('Please provide a title for your guest house.');
+      return;
+    }
+
+    setFormSubmitting(true);
+    try {
+      const newListing = {
+        title: ghForm.title.trim(),
+        name: ghForm.title.trim(),
+        description: ghForm.description.trim() || 'Spacious, well-appointed guest house with modern comforts.',
+        category: 'guesthouse',
+        type: 'guesthouse',
+        address: ghForm.address.trim() || `${ghForm.city}, Center`,
+        location: ghForm.address.trim() || `${ghForm.city}, Center`,
+        city: ghForm.city,
+        price: Number(ghForm.price) || 60,
+        regularPrice: Number(ghForm.price) || 60,
+        priceUnit: 'night',
+        currency: 'USD',
+        bedrooms: Number(ghForm.bedrooms) || 1,
+        bathrooms: Number(ghForm.bathrooms) || 1,
+        maxGuests: Number(ghForm.maxGuests) || 2,
+        amenities: ghForm.amenities.split(',').map((s) => s.trim()).filter(Boolean),
+        images: ghForm.imageUrls,
+        imageUrls: ghForm.imageUrls,
+        contactPhone: userProfile?.phone || regPhone || '+291 7 123 456',
+        ownerEmail: currentUser.email,
+        ownerName: userProfile?.displayName || currentUser.displayName || 'Partner Host',
+        isAvailable: true,
+        available: true,
+        availabilityStatus: 'available',
+      };
+
+      await createListing(newListing, currentUser);
+      showToast('🎉 Property submitted successfully! It is now in moderation and ready for bookings.');
+      setPortalTab('listings');
+      loadHostListings();
+      // Reset form
+      setGhForm((prev) => ({
+        ...prev,
+        title: '',
+        description: '',
+        address: '',
+      }));
+    } catch (err) {
+      console.error('Error creating guest house:', err);
+      showToast(err.message || 'Failed to submit property. Please try again.');
+    } finally {
+      setFormSubmitting(false);
+    }
+  };
+
+  // Create Vehicle Listing
+  const handleCreateVehicle = async (e) => {
+    e.preventDefault();
+    if (!carForm.title.trim() && (!carForm.make || !carForm.model)) {
+      showToast('Please enter a vehicle make and model.');
+      return;
+    }
+
+    setFormSubmitting(true);
+    try {
+      const title = carForm.title.trim() || `${carForm.make} ${carForm.model} (${carForm.year})`;
+      const newListing = {
+        title,
+        name: title,
+        make: carForm.make,
+        model: carForm.model,
+        year: Number(carForm.year) || 2022,
+        description: carForm.description.trim() || 'Pristine, air-conditioned vehicle with experienced professional chauffeur.',
+        category: 'car_service',
+        type: 'car',
+        address: carForm.city,
+        location: carForm.city,
+        city: carForm.city,
+        price: Number(carForm.price) || 85,
+        regularPrice: Number(carForm.price) || 85,
+        priceUnit: 'day',
+        currency: 'USD',
+        seats: Number(carForm.seats) || 4,
+        transmission: carForm.transmission,
+        driverIncluded: Boolean(carForm.driverIncluded),
+        driverName: carForm.driverName || userProfile?.displayName || 'Licensed Chauffeur',
+        driverContact: carForm.driverContact || userProfile?.phone || regPhone || '+291 7 123 456',
+        contactPhone: carForm.driverContact || userProfile?.phone || regPhone || '+291 7 123 456',
+        images: carForm.imageUrls,
+        imageUrls: carForm.imageUrls,
+        ownerEmail: currentUser.email,
+        ownerName: userProfile?.displayName || currentUser.displayName || 'Vehicle Partner',
+        isAvailable: true,
+        available: true,
+        availabilityStatus: 'available',
+      };
+
+      await createListing(newListing, currentUser);
+      showToast('🎉 Vehicle submitted successfully! It is now in moderation and ready for bookings.');
+      setPortalTab('listings');
+      loadHostListings();
+      // Reset form
+      setCarForm((prev) => ({
+        ...prev,
+        title: '',
+        description: '',
+      }));
+    } catch (err) {
+      console.error('Error creating vehicle:', err);
+      showToast(err.message || 'Failed to submit vehicle. Please try again.');
+    } finally {
+      setFormSubmitting(false);
+    }
+  };
+
+  // Delete Listing
+  const handleDeleteListing = async (listingId, title) => {
+    if (!window.confirm(`Are you sure you want to delete "${title}"?`)) return;
+    try {
+      await deleteListing(listingId);
+      setListings((prev) => prev.filter((l) => l.id !== listingId));
+      showToast(`Listing "${title}" removed.`);
+    } catch (err) {
+      console.error('Delete error:', err);
+      showToast('Could not delete listing.');
+    }
+  };
+
+  // Share Actions
+  const getListingUrl = (id) => `${window.location.origin}/listing/${id}`;
+
+  const handleCopyShareLink = (id) => {
+    const url = getListingUrl(id);
+    navigator.clipboard.writeText(url);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2500);
+    showToast('Direct listing link copied to clipboard!');
+  };
+
+  const handleWhatsAppShare = (listing) => {
+    const url = getListingUrl(listing.id);
+    const text = encodeURIComponent(
+      `Check out my verified listing "${listing.title || listing.name}" on chento 100: ${url}`
+    );
+    window.open(`https://wa.me/?text=${text}`, '_blank');
+  };
+
+  const filteredListings = listings.filter((l) => {
+    if (listingFilter === 'all') return true;
+    if (listingFilter === 'guesthouse') {
+      return l.type === 'guesthouse' || l.category === 'guesthouse' || l.type === 'rent';
+    }
+    if (listingFilter === 'car') {
+      return l.type === 'car' || l.category === 'car_service' || l.type === 'sale';
+    }
+    return true;
+  });
+
+  const availableCount = listings.filter(
+    (l) => l.isAvailable !== false && l.available !== false
+  ).length;
+
+  return (
+    <div className='min-h-screen bg-slate-50 text-neutral-900 pb-20'>
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className='fixed bottom-6 right-6 z-50 bg-black text-white px-5 py-3 rounded-2xl shadow-2xl border border-neutral-700 text-sm font-semibold flex items-center gap-3 animate-fadeInUp max-w-md'>
+          <FaCheckCircle className='text-emerald-400 text-base shrink-0' />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
+      {/* Share Modal Dialog */}
+      {shareModalListing && (
+        <div className='fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4'>
+          <div className='bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 space-y-6 shadow-2xl border border-neutral-200 animate-fadeInUp'>
+            <div className='flex items-start justify-between'>
+              <div className='space-y-1'>
+                <span className='text-[11px] font-extrabold uppercase tracking-wider text-neutral-400'>
+                  Share Your Listing
+                </span>
+                <h3 className='text-xl font-bold text-neutral-900 line-clamp-1'>
+                  {shareModalListing.title || shareModalListing.name}
+                </h3>
+              </div>
+              <button
+                type='button'
+                onClick={() => setShareModalListing(null)}
+                className='text-neutral-400 hover:text-neutral-900 p-1.5 rounded-full hover:bg-neutral-100 transition'
+              >
+                <FaTimes />
+              </button>
+            </div>
+
+            <p className='text-xs text-neutral-500 leading-relaxed'>
+              Share your direct listing link with potential guests on WhatsApp, social media, or via SMS. Guests can view photos, specifications, and contact you directly.
+            </p>
+
+            {/* Link Copy Box */}
+            <div className='flex items-center gap-2 p-2.5 bg-neutral-50 rounded-xl border border-neutral-200'>
+              <input
+                type='text'
+                readOnly
+                value={getListingUrl(shareModalListing.id)}
+                className='bg-transparent text-xs text-neutral-800 w-full focus:outline-hidden font-mono truncate'
+              />
+              <button
+                type='button'
+                onClick={() => handleCopyShareLink(shareModalListing.id)}
+                className='px-3 py-1.5 bg-black hover:bg-neutral-800 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 shadow-xs'
+              >
+                {copiedLink ? <FaCheck className='text-emerald-400' /> : <FaCopy />}
+                <span>{copiedLink ? 'Copied' : 'Copy'}</span>
+              </button>
+            </div>
+
+            {/* Quick Share Buttons */}
+            <div className='grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2'>
+              <button
+                type='button'
+                onClick={() => handleWhatsAppShare(shareModalListing)}
+                className='py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition flex items-center justify-center gap-2 shadow-xs'
+              >
+                <FaWhatsapp className='text-base' />
+                <span>Share on WhatsApp</span>
+              </button>
+
+              <button
+                type='button'
+                onClick={() => {
+                  if (navigator.share) {
+                    navigator.share({
+                      title: shareModalListing.title,
+                      text: `Check out ${shareModalListing.title} on chento 100`,
+                      url: getListingUrl(shareModalListing.id),
+                    });
+                  } else {
+                    handleCopyShareLink(shareModalListing.id);
+                  }
+                }}
+                className='py-2.5 px-4 rounded-xl bg-black hover:bg-neutral-800 text-white text-xs font-bold transition flex items-center justify-center gap-2 shadow-xs'
+              >
+                <FaShareAlt />
+                <span>Native Share Menu</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Date Range Availability Block Modal */}
+      {availModalListing && (
+        <div className='fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4'>
+          <form
+            onSubmit={handleSaveBlockDates}
+            className='bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 space-y-5 shadow-2xl border border-neutral-200 animate-fadeInUp'
+          >
+            <div className='flex items-start justify-between'>
+              <div>
+                <span className='text-[11px] font-extrabold uppercase tracking-wider text-rose-500'>
+                  Set Calendar Unavailable Dates
+                </span>
+                <h3 className='text-lg font-bold text-neutral-900 line-clamp-1'>
+                  {availModalListing.title}
+                </h3>
+              </div>
+              <button
+                type='button'
+                onClick={() => setAvailModalListing(null)}
+                className='text-neutral-400 hover:text-neutral-900 p-1.5 rounded-full hover:bg-neutral-100'
+              >
+                <FaTimes />
+              </button>
+            </div>
+
+            <p className='text-xs text-neutral-500 leading-relaxed'>
+              Mark your guest house or vehicle as reserved or blocked for specific dates. Guests will see this listing as temporarily booked.
+            </p>
+
+            <div className='space-y-3 text-xs'>
+              <div>
+                <label className='font-bold text-neutral-800 block mb-1'>From Date</label>
+                <input
+                  type='date'
+                  value={blockFromDate}
+                  onChange={(e) => setBlockFromDate(e.target.value)}
+                  className='w-full p-2.5 border border-neutral-300 rounded-xl bg-white text-neutral-900 focus:outline-hidden focus:border-black'
+                  required
+                />
+              </div>
+
+              <div>
+                <label className='font-bold text-neutral-800 block mb-1'>To Date</label>
+                <input
+                  type='date'
+                  value={blockToDate}
+                  onChange={(e) => setBlockToDate(e.target.value)}
+                  className='w-full p-2.5 border border-neutral-300 rounded-xl bg-white text-neutral-900 focus:outline-hidden focus:border-black'
+                  required
+                />
+              </div>
+
+              <div>
+                <label className='font-bold text-neutral-800 block mb-1'>Reason / Note</label>
+                <select
+                  value={blockReason}
+                  onChange={(e) => setBlockReason(e.target.value)}
+                  className='w-full p-2.5 border border-neutral-300 rounded-xl bg-white text-neutral-900 focus:outline-hidden focus:border-black'
+                >
+                  <option value='Reserved by direct guest'>Reserved by direct guest</option>
+                  <option value='Booked via WhatsApp'>Booked via WhatsApp</option>
+                  <option value='Scheduled vehicle maintenance'>Scheduled vehicle maintenance</option>
+                  <option value='Host personal holiday'>Host personal holiday / unavailable</option>
+                  <option value='Under renovation'>Under renovation</option>
+                </select>
+              </div>
+            </div>
+
+            <div className='pt-2 flex items-center justify-end gap-2'>
+              <button
+                type='button'
+                onClick={() => setAvailModalListing(null)}
+                className='px-4 py-2 border border-neutral-300 hover:bg-neutral-100 rounded-xl text-xs font-bold transition'
+              >
+                Cancel
+              </button>
+              <button
+                type='submit'
+                className='px-5 py-2 bg-black hover:bg-neutral-800 text-white rounded-xl text-xs font-bold transition shadow-xs'
+              >
+                Block Dates
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* TOP HERO BANNER: Partner with chento 100 */}
+      <section className='bg-black text-white pt-14 pb-16 px-4 sm:px-8 border-b border-neutral-800 relative overflow-hidden'>
+        <div className='max-w-6xl mx-auto space-y-8 relative z-10'>
+          <div className='inline-flex items-center gap-2 px-3 py-1 rounded-full bg-neutral-900 border border-neutral-700 text-amber-300 text-xs font-bold uppercase tracking-wider'>
+            <FaStar className='text-amber-400' />
+            <span>Host &amp; Chauffeur Partner Network</span>
+          </div>
+
+          <div className='grid grid-cols-1 lg:grid-cols-12 gap-8 items-center'>
+            <div className='lg:col-span-8 space-y-4'>
+              <h1 className='text-4xl sm:text-5xl lg:text-6xl font-medium tracking-tight text-white leading-[1.08]'>
+                Partner with chento 100
+              </h1>
+              <p className='text-neutral-300 text-sm sm:text-base max-w-2xl leading-relaxed'>
+                List your boutique guest house, apartment, or private vehicle with chauffeur on our verified marketplace. Connect with qualified local and diaspora travelers, set your own prices, manage availability anytime, and receive direct payments with 0% platform broker cuts.
+              </p>
+            </div>
+
+            <div className='lg:col-span-4 bg-neutral-900/90 border border-neutral-800 p-6 rounded-3xl space-y-3.5 backdrop-blur-md shadow-2xl'>
+              <div className='text-xs font-bold uppercase tracking-wider text-neutral-400'>
+                Partner Guarantees
+              </div>
+              <div className='space-y-2.5 text-xs text-neutral-200'>
+                <div className='flex items-center gap-2.5'>
+                  <FaCheckCircle className='text-emerald-400 shrink-0' />
+                  <span>100% Direct Guest Payments upon check-in</span>
+                </div>
+                <div className='flex items-center gap-2.5'>
+                  <FaCheckCircle className='text-emerald-400 shrink-0' />
+                  <span>Zero hidden broker commission deductions</span>
+                </div>
+                <div className='flex items-center gap-2.5'>
+                  <FaCheckCircle className='text-emerald-400 shrink-0' />
+                  <span>Change and toggle availability anytime</span>
+                </div>
+                <div className='flex items-center gap-2.5'>
+                  <FaCheckCircle className='text-emerald-400 shrink-0' />
+                  <span>Direct WhatsApp and phone inquiries</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* CONDITIONAL CONTENT: IF USER IS NOT SIGNED IN -> REGISTRATION / SIGN IN HERO */}
+      {!currentUser ? (
+        <section className='max-w-6xl mx-auto px-4 sm:px-8 -mt-8 relative z-20'>
+          <div className='grid grid-cols-1 lg:grid-cols-12 gap-8 items-start'>
+            {/* Left Column: Why Partner Value Props */}
+            <div className='lg:col-span-6 space-y-6 pt-4'>
+              <div className='bg-white p-6 sm:p-8 rounded-3xl border border-neutral-200 shadow-sm space-y-5'>
+                <h2 className='text-2xl font-bold text-neutral-900 tracking-tight'>
+                  How Partnering Works
+                </h2>
+                <div className='space-y-4'>
+                  <div className='flex items-start gap-3.5'>
+                    <div className='w-8 h-8 rounded-full bg-black text-white flex items-center justify-center text-xs font-bold shrink-0 mt-0.5'>
+                      1
+                    </div>
+                    <div>
+                      <h4 className='text-sm font-bold text-neutral-900'>Register with Name, Email &amp; Phone</h4>
+                      <p className='text-xs text-neutral-500 mt-0.5 leading-relaxed'>
+                        Quick 1-minute registration so travelers can contact you directly via phone or WhatsApp.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className='flex items-start gap-3.5'>
+                    <div className='w-8 h-8 rounded-full bg-black text-white flex items-center justify-center text-xs font-bold shrink-0 mt-0.5'>
+                      2
+                    </div>
+                    <div>
+                      <h4 className='text-sm font-bold text-neutral-900'>List Your Property or Vehicle</h4>
+                      <p className='text-xs text-neutral-500 mt-0.5 leading-relaxed'>
+                        Add high-quality photos, daily or nightly rates, amenities, and specifications. Our administrators verify your listing within 24 hours.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className='flex items-start gap-3.5'>
+                    <div className='w-8 h-8 rounded-full bg-black text-white flex items-center justify-center text-xs font-bold shrink-0 mt-0.5'>
+                      3
+                    </div>
+                    <div>
+                      <h4 className='text-sm font-bold text-neutral-900'>Share &amp; Control Availability Anytime</h4>
+                      <p className='text-xs text-neutral-500 mt-0.5 leading-relaxed'>
+                        Share your live link to customers, toggle between available and booked instantly, and block dates on your interactive calendar.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Trust Badge Grid */}
+              <div className='grid grid-cols-2 gap-4 text-neutral-700'>
+                <div className='p-5 bg-white rounded-2xl border border-neutral-200 shadow-2xs space-y-1.5'>
+                  <FaHome className='text-xl text-neutral-900' />
+                  <h4 className='text-xs font-bold text-neutral-900'>Guest House Hosts</h4>
+                  <p className='text-[11px] text-neutral-500'>Apartments, villas, and family homes in Asmara, Massawa, and Keren.</p>
+                </div>
+                <div className='p-5 bg-white rounded-2xl border border-neutral-200 shadow-2xs space-y-1.5'>
+                  <FaCar className='text-xl text-neutral-900' />
+                  <h4 className='text-xs font-bold text-neutral-900'>Chauffeur &amp; Fleets</h4>
+                  <p className='text-[11px] text-neutral-500'>City sedans, 4x4 SUVs, and VIP airport transfer vans.</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Column: Registration Form Box */}
+            <div className='lg:col-span-6'>
+              <div className='bg-white p-6 sm:p-8 rounded-3xl border border-neutral-200 shadow-xl space-y-6'>
+                {/* Form Header & Switch */}
+                <div className='flex items-center justify-between border-b border-neutral-100 pb-4'>
+                  <div>
+                    <h2 className='text-xl sm:text-2xl font-bold text-neutral-900'>
+                      {authMode === 'register' ? 'Register as a Partner' : 'Partner Sign In'}
+                    </h2>
+                    <p className='text-xs text-neutral-500 mt-0.5'>
+                      {authMode === 'register'
+                        ? 'Join our host network and list your property or vehicle'
+                        : 'Access your partner portal and availability controls'}
+                    </p>
+                  </div>
+
+                  <div className='flex bg-neutral-100 p-1 rounded-xl text-xs font-bold'>
+                    <button
+                      type='button'
+                      onClick={() => {
+                        setAuthMode('register');
+                        setAuthError('');
+                      }}
+                      className={`px-3 py-1.5 rounded-lg transition ${
+                        authMode === 'register'
+                          ? 'bg-black text-white shadow-xs'
+                          : 'text-neutral-600 hover:text-black'
+                      }`}
+                    >
+                      Register
+                    </button>
+                    <button
+                      type='button'
+                      onClick={() => {
+                        setAuthMode('signin');
+                        setAuthError('');
+                      }}
+                      className={`px-3 py-1.5 rounded-lg transition ${
+                        authMode === 'signin'
+                          ? 'bg-black text-white shadow-xs'
+                          : 'text-neutral-600 hover:text-black'
+                      }`}
+                    >
+                      Sign In
+                    </button>
+                  </div>
+                </div>
+
+                {authError && (
+                  <div className='p-3.5 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl flex items-center gap-2'>
+                    <FaInfoCircle className='shrink-0' />
+                    <span>{authError}</span>
+                  </div>
+                )}
+
+                {/* Registration Form */}
+                {authMode === 'register' ? (
+                  <form onSubmit={handleRegisterSubmit} className='space-y-4'>
+                    <div>
+                      <label className='block text-xs font-bold text-neutral-800 mb-1 flex items-center gap-1.5'>
+                        <FaUser className='text-neutral-400 text-xs' />
+                        <span>Full Name / Host Name *</span>
+                      </label>
+                      <input
+                        type='text'
+                        value={regName}
+                        onChange={(e) => setRegName(e.target.value)}
+                        placeholder='e.g. Abraham Ghebrehiwet or Horizon Stays'
+                        className='w-full p-3 bg-neutral-50 border border-neutral-200 rounded-xl text-sm focus:outline-hidden focus:border-black focus:bg-white transition'
+                        required
+                      />
+                    </div>
+
+                    <div className='grid grid-cols-1 sm:grid-cols-2 gap-3.5'>
+                      <div>
+                        <label className='block text-xs font-bold text-neutral-800 mb-1 flex items-center gap-1.5'>
+                          <FaEnvelope className='text-neutral-400 text-xs' />
+                          <span>Email Address *</span>
+                        </label>
+                        <input
+                          type='email'
+                          value={regEmail}
+                          onChange={(e) => setRegEmail(e.target.value)}
+                          placeholder='host@example.com'
+                          className='w-full p-3 bg-neutral-50 border border-neutral-200 rounded-xl text-sm focus:outline-hidden focus:border-black focus:bg-white transition'
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className='block text-xs font-bold text-neutral-800 mb-1 flex items-center gap-1.5'>
+                          <FaPhoneAlt className='text-neutral-400 text-xs' />
+                          <span>Phone / WhatsApp *</span>
+                        </label>
+                        <input
+                          type='tel'
+                          value={regPhone}
+                          onChange={(e) => setRegPhone(e.target.value)}
+                          placeholder='+291 7 123 456'
+                          className='w-full p-3 bg-neutral-50 border border-neutral-200 rounded-xl text-sm focus:outline-hidden focus:border-black focus:bg-white transition'
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className='block text-xs font-bold text-neutral-800 mb-1 flex items-center gap-1.5'>
+                        <FaLock className='text-neutral-400 text-xs' />
+                        <span>Password (min. 6 characters) *</span>
+                      </label>
+                      <input
+                        type='password'
+                        value={regPassword}
+                        onChange={(e) => setRegPassword(e.target.value)}
+                        placeholder='••••••••'
+                        className='w-full p-3 bg-neutral-50 border border-neutral-200 rounded-xl text-sm focus:outline-hidden focus:border-black focus:bg-white transition'
+                        required
+                        minLength={6}
+                      />
+                    </div>
+
+                    <div>
+                      <label className='block text-xs font-bold text-neutral-800 mb-1.5'>
+                        What would you like to list?
+                      </label>
+                      <div className='grid grid-cols-3 gap-2'>
+                        {[
+                          { id: 'guesthouse', label: '🏡 Guest House' },
+                          { id: 'car', label: '🚗 Vehicle' },
+                          { id: 'both', label: '⭐ Both' },
+                        ].map((t) => (
+                          <button
+                            key={t.id}
+                            type='button'
+                            onClick={() => setRegPartnerType(t.id)}
+                            className={`p-2.5 rounded-xl border text-xs font-bold text-center transition ${
+                              regPartnerType === t.id
+                                ? 'bg-black text-white border-black shadow-xs'
+                                : 'bg-neutral-50 text-neutral-700 border-neutral-200 hover:bg-neutral-100'
+                            }`}
+                          >
+                            {t.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <button
+                      type='submit'
+                      disabled={authLoading}
+                      className='w-full py-3.5 bg-black hover:bg-neutral-800 text-white rounded-xl text-sm font-bold transition flex items-center justify-center gap-2 shadow-md cursor-pointer disabled:opacity-60'
+                    >
+                      {authLoading ? 'Registering...' : 'Register as Partner & Enter Portal →'}
+                    </button>
+                  </form>
+                ) : (
+                  /* Sign In Form */
+                  <form onSubmit={handleSignInSubmit} className='space-y-4'>
+                    <div>
+                      <label className='block text-xs font-bold text-neutral-800 mb-1 flex items-center gap-1.5'>
+                        <FaEnvelope className='text-neutral-400 text-xs' />
+                        <span>Email Address</span>
+                      </label>
+                      <input
+                        type='email'
+                        value={loginEmail}
+                        onChange={(e) => setLoginEmail(e.target.value)}
+                        placeholder='your-email@example.com'
+                        className='w-full p-3 bg-neutral-50 border border-neutral-200 rounded-xl text-sm focus:outline-hidden focus:border-black focus:bg-white transition'
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className='block text-xs font-bold text-neutral-800 mb-1 flex items-center gap-1.5'>
+                        <FaLock className='text-neutral-400 text-xs' />
+                        <span>Password</span>
+                      </label>
+                      <input
+                        type='password'
+                        value={loginPassword}
+                        onChange={(e) => setLoginPassword(e.target.value)}
+                        placeholder='••••••••'
+                        className='w-full p-3 bg-neutral-50 border border-neutral-200 rounded-xl text-sm focus:outline-hidden focus:border-black focus:bg-white transition'
+                        required
+                      />
+                    </div>
+
+                    <button
+                      type='submit'
+                      disabled={authLoading}
+                      className='w-full py-3.5 bg-black hover:bg-neutral-800 text-white rounded-xl text-sm font-bold transition flex items-center justify-center gap-2 shadow-md cursor-pointer disabled:opacity-60'
+                    >
+                      {authLoading ? 'Signing In...' : 'Sign In to Partner Portal →'}
+                    </button>
+                  </form>
+                )}
+
+                {/* Development Quick Demo Account Sign-In */}
+                <div className='p-4 bg-neutral-50 rounded-2xl border border-neutral-200 space-y-2.5 mt-4'>
+                  <div className='flex items-center justify-between text-xs'>
+                    <span className='font-bold text-neutral-800 flex items-center gap-1.5'>
+                      <span className='text-amber-500 font-extrabold'>⚡</span>
+                      <span>Development Quick Demo</span>
+                    </span>
+                    <button
+                      type='button'
+                      onClick={handleDemoSignIn}
+                      disabled={authLoading}
+                      className='px-3 py-1 bg-black hover:bg-neutral-800 text-white font-bold rounded-lg text-xs transition shadow-xs cursor-pointer'
+                    >
+                      1-Click Host Sign In
+                    </button>
+                  </div>
+                  <div className='bg-white p-2.5 rounded-xl text-[11px] font-mono text-neutral-600 border border-neutral-200 flex flex-col gap-0.5'>
+                    <div>Email: <span className='text-neutral-950 font-bold'>demo.host@chento100.com</span></div>
+                    <div>Password: <span className='text-neutral-950 font-bold'>password123</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      ) : (
+        /* ========================================================================= */
+        /* AUTHENTICATED PARTNER PORTAL VIEW */
+        /* ========================================================================= */
+        <section className='max-w-6xl mx-auto px-4 sm:px-8 -mt-8 relative z-20 space-y-8'>
+          {/* Partner Info Banner */}
+          <div className='bg-white rounded-3xl border border-neutral-200 p-6 sm:p-8 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6'>
+            <div className='flex items-center gap-4'>
+              <div className='w-14 h-14 rounded-2xl bg-black text-white flex items-center justify-center text-xl font-black shadow-sm'>
+                {(currentUser.displayName || currentUser.email || 'P')[0].toUpperCase()}
+              </div>
+              <div className='space-y-1'>
+                <div className='flex items-center gap-2 flex-wrap'>
+                  <h2 className='text-xl sm:text-2xl font-bold text-neutral-900'>
+                    {currentUser.displayName || userProfile?.displayName || 'Partner Host'}
+                  </h2>
+                  <span className='px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-emerald-100 text-emerald-800 flex items-center gap-1'>
+                    <FaCheckCircle className='text-[10px]' />
+                    <span>Verified Partner</span>
+                  </span>
+                </div>
+                <div className='flex items-center gap-3 text-xs text-neutral-500 flex-wrap'>
+                  <span className='flex items-center gap-1'>
+                    <FaEnvelope className='text-neutral-400' />
+                    <span>{currentUser.email}</span>
+                  </span>
+                  {(userProfile?.phone || regPhone) && (
+                    <span className='flex items-center gap-1'>
+                      <FaPhoneAlt className='text-neutral-400' />
+                      <span>{userProfile?.phone || regPhone}</span>
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Metrics */}
+            <div className='flex items-center gap-4 w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 pt-4 md:pt-0 border-neutral-100'>
+              <div className='text-center px-3'>
+                <div className='text-2xl font-black text-neutral-900'>{listings.length}</div>
+                <div className='text-[11px] text-neutral-400'>Total Listings</div>
+              </div>
+              <div className='text-center px-3 border-x border-neutral-100'>
+                <div className='text-2xl font-black text-emerald-600'>{availableCount}</div>
+                <div className='text-[11px] text-neutral-400'>Available Now</div>
+              </div>
+              <div className='text-center px-3'>
+                <div className='text-2xl font-black text-neutral-900'>
+                  {listings.reduce((sum, item) => sum + (item.viewCount || 0), 0)}
+                </div>
+                <div className='text-[11px] text-neutral-400'>Total Views</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Portal Navigation Tabs */}
+          <div className='flex items-center gap-2 overflow-x-auto pb-1 bg-white p-2 rounded-2xl border border-neutral-200 shadow-2xs'>
+            <button
+              type='button'
+              onClick={() => setPortalTab('listings')}
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+                portalTab === 'listings'
+                  ? 'bg-black text-white shadow-xs'
+                  : 'text-neutral-600 hover:text-black hover:bg-neutral-100'
+              }`}
+            >
+              <span>📋 My Properties &amp; Vehicles</span>
+              <span className='px-1.5 py-0.2 rounded-full text-[10px] bg-neutral-800 text-white'>
+                {listings.length}
+              </span>
+            </button>
+
+            <button
+              type='button'
+              onClick={() => setPortalTab('new_house')}
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+                portalTab === 'new_house'
+                  ? 'bg-black text-white shadow-xs'
+                  : 'text-neutral-600 hover:text-black hover:bg-neutral-100'
+              }`}
+            >
+              <FaPlus className='text-[10px]' />
+              <span>List a Guest House</span>
+            </button>
+
+            <button
+              type='button'
+              onClick={() => setPortalTab('new_car')}
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+                portalTab === 'new_car'
+                  ? 'bg-black text-white shadow-xs'
+                  : 'text-neutral-600 hover:text-black hover:bg-neutral-100'
+              }`}
+            >
+              <FaPlus className='text-[10px]' />
+              <span>List a Vehicle</span>
+            </button>
+
+            <button
+              type='button'
+              onClick={() => setPortalTab('availability')}
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+                portalTab === 'availability'
+                  ? 'bg-black text-white shadow-xs'
+                  : 'text-neutral-600 hover:text-black hover:bg-neutral-100'
+              }`}
+            >
+              <FaCalendarAlt />
+              <span>Availability Manager</span>
+            </button>
+          </div>
+
+          {/* ========================================================================= */}
+          {/* TAB 1: MY PROPERTIES & VEHICLES LIST */}
+          {/* ========================================================================= */}
+          {portalTab === 'listings' && (
+            <div className='space-y-6'>
+              {/* Category Filter Toolbar */}
+              <div className='flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4'>
+                <div className='flex items-center gap-1.5 bg-white p-1 rounded-xl border border-neutral-200 text-xs font-semibold'>
+                  <button
+                    type='button'
+                    onClick={() => setListingFilter('all')}
+                    className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
+                      listingFilter === 'all' ? 'bg-black text-white' : 'text-neutral-600 hover:bg-neutral-100'
+                    }`}
+                  >
+                    All ({listings.length})
+                  </button>
+                  <button
+                    type='button'
+                    onClick={() => setListingFilter('guesthouse')}
+                    className={`px-3 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1 ${
+                      listingFilter === 'guesthouse' ? 'bg-black text-white' : 'text-neutral-600 hover:bg-neutral-100'
+                    }`}
+                  >
+                    <FaHome className='text-[10px]' />
+                    <span>Guest Houses</span>
+                  </button>
+                  <button
+                    type='button'
+                    onClick={() => setListingFilter('car')}
+                    className={`px-3 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1 ${
+                      listingFilter === 'car' ? 'bg-black text-white' : 'text-neutral-600 hover:bg-neutral-100'
+                    }`}
+                  >
+                    <FaCar className='text-[10px]' />
+                    <span>Vehicles</span>
+                  </button>
+                </div>
+
+                <div className='flex items-center gap-2'>
+                  <button
+                    type='button'
+                    onClick={() => setPortalTab('new_house')}
+                    className='px-3.5 py-2 bg-black hover:bg-neutral-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer'
+                  >
+                    <FaPlus className='text-[10px]' />
+                    <span>Add Property</span>
+                  </button>
+                  <button
+                    type='button'
+                    onClick={() => setPortalTab('new_car')}
+                    className='px-3.5 py-2 bg-black hover:bg-neutral-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer'
+                  >
+                    <FaPlus className='text-[10px]' />
+                    <span>Add Vehicle</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Listings Grid */}
+              {loadingListings ? (
+                <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'>
+                  {[1, 2, 3].map((n) => (
+                    <div key={n} className='h-72 bg-white rounded-3xl border border-neutral-200 animate-pulse' />
+                  ))}
+                </div>
+              ) : filteredListings.length > 0 ? (
+                <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'>
+                  {filteredListings.map((listing) => {
+                    const isAvailable = listing.isAvailable !== false && listing.available !== false;
+                    const isGuestHouse =
+                      listing.type === 'guesthouse' ||
+                      listing.category === 'guesthouse' ||
+                      listing.type === 'rent';
+                    const cover =
+                      listing.images?.[0] ||
+                      listing.imageUrls?.[0] ||
+                      (isGuestHouse ? '/images/airbnb_apartment_living.jpg' : '/images/city_regular_sedan.jpg');
+
+                    return (
+                      <div
+                        key={listing.id}
+                        className='bg-white rounded-3xl border border-neutral-200 overflow-hidden shadow-xs hover:shadow-md transition-all flex flex-col justify-between'
+                      >
+                        <div>
+                          {/* Image & Status Overlay */}
+                          <div className='relative h-48 w-full bg-neutral-100 overflow-hidden'>
+                            <img
+                              src={cover}
+                              alt={listing.title}
+                              className='w-full h-full object-cover'
+                              onError={(e) => {
+                                e.currentTarget.src = isGuestHouse
+                                  ? '/images/airbnb_apartment_living.jpg'
+                                  : '/images/city_regular_sedan.jpg';
+                              }}
+                            />
+                            {/* Badges */}
+                            <div className='absolute top-3 left-3 flex items-center gap-1.5'>
+                              <span className='px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-black/80 backdrop-blur-md text-white'>
+                                {isGuestHouse ? '🏡 Guest House' : '🚗 Vehicle'}
+                              </span>
+                              <span
+                                className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                                  listing.status === 'approved'
+                                    ? 'bg-emerald-500 text-white'
+                                    : 'bg-amber-400 text-neutral-900'
+                                }`}
+                              >
+                                {listing.status === 'approved' ? '✓ Approved' : '⏳ In Review'}
+                              </span>
+                            </div>
+
+                            {/* Live Availability Badge */}
+                            <div className='absolute bottom-3 left-3'>
+                              <span
+                                className={`px-2.5 py-1 rounded-full text-[11px] font-black shadow-md flex items-center gap-1.5 ${
+                                  isAvailable
+                                    ? 'bg-emerald-600 text-white'
+                                    : 'bg-rose-600 text-white'
+                                }`}
+                              >
+                                <span className={`w-2 h-2 rounded-full ${isAvailable ? 'bg-emerald-300' : 'bg-rose-300'} animate-pulse`} />
+                                <span>{isAvailable ? 'Available for Booking' : 'Unavailable / Blocked'}</span>
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Listing Card Details */}
+                          <div className='p-5 space-y-3'>
+                            <div className='flex items-start justify-between gap-2'>
+                              <h3 className='font-bold text-neutral-900 text-base line-clamp-1'>
+                                {listing.title || listing.name}
+                              </h3>
+                              <div className='text-right shrink-0'>
+                                <span className='text-sm font-black text-neutral-900'>
+                                  ${listing.price || listing.regularPrice}
+                                </span>
+                                <span className='text-[10px] text-neutral-500'>
+                                  /{listing.priceUnit || (isGuestHouse ? 'night' : 'day')}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className='flex items-center gap-1 text-xs text-neutral-500 truncate'>
+                              <FaMapMarkerAlt className='text-rose-500 text-xs shrink-0' />
+                              <span className='truncate'>{listing.city || listing.address || 'Asmara'}</span>
+                            </div>
+
+                            {/* Blocked dates note if present */}
+                            {!isAvailable && listing.availabilityNotes && (
+                              <div className='p-2 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-[11px] flex items-center gap-1.5'>
+                                <FaCalendarAlt className='shrink-0' />
+                                <span className='truncate'>{listing.availabilityNotes}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Bottom Actions Toolbar */}
+                        <div className='p-5 pt-0 space-y-2.5 border-t border-neutral-100 mt-2 pt-4'>
+                          {/* Live Availability Switch Button */}
+                          <button
+                            type='button'
+                            onClick={() => handleToggleAvailability(listing)}
+                            className={`w-full py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer shadow-xs ${
+                              isAvailable
+                                ? 'bg-black text-white hover:bg-neutral-800'
+                                : 'bg-black text-white hover:bg-neutral-800'
+                            }`}
+                          >
+                            <FaCalendarAlt />
+                            <span>
+                              {isAvailable ? 'Mark Unavailable / Block Dates' : 'Mark Available Now'}
+                            </span>
+                          </button>
+
+                          {/* Secondary Controls: Share, Dates, View, Delete */}
+                          <div className='grid grid-cols-4 gap-1.5 pt-1'>
+                            <button
+                              type='button'
+                              onClick={() => setShareModalListing(listing)}
+                              title='Share listing link'
+                              className='py-2 px-1 bg-black hover:bg-neutral-800 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 shadow-xs cursor-pointer'
+                            >
+                              <FaShareAlt className='text-xs' />
+                              <span className='hidden sm:inline'>Share</span>
+                            </button>
+
+                            <button
+                              type='button'
+                              onClick={() => setAvailModalListing(listing)}
+                              title='Block custom date range'
+                              className='py-2 px-1 bg-black hover:bg-neutral-800 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 shadow-xs cursor-pointer'
+                            >
+                              <FaCalendarAlt className='text-xs' />
+                              <span className='hidden sm:inline'>Dates</span>
+                            </button>
+
+                            <Link
+                              to={`/listing/${listing.id}`}
+                              title='Preview public listing page'
+                              className='py-2 px-1 bg-black hover:bg-neutral-800 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 shadow-xs'
+                            >
+                              <FaEye className='text-xs' />
+                              <span className='hidden sm:inline'>View</span>
+                            </Link>
+
+                            <button
+                              type='button'
+                              onClick={() => handleDeleteListing(listing.id, listing.title)}
+                              title='Delete listing'
+                              className='py-2 px-1 bg-black hover:bg-neutral-800 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 shadow-xs cursor-pointer'
+                            >
+                              <FaTrash className='text-xs text-rose-400' />
+                              <span className='hidden sm:inline text-rose-400'>Del</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                /* Empty Listings State */
+                <div className='bg-white rounded-3xl border border-dashed border-neutral-300 p-10 sm:p-14 text-center space-y-4'>
+                  <div className='w-14 h-14 rounded-full bg-neutral-100 flex items-center justify-center text-2xl mx-auto'>
+                    🏡
+                  </div>
+                  <h3 className='text-lg font-bold text-neutral-900'>No listings posted yet</h3>
+                  <p className='text-xs text-neutral-500 max-w-md mx-auto leading-relaxed'>
+                    Ready to start earning? Add your boutique guest house or chauffeured vehicle in just a few minutes.
+                  </p>
+                  <div className='flex items-center justify-center gap-3 pt-2'>
+                    <button
+                      type='button'
+                      onClick={() => setPortalTab('new_house')}
+                      className='px-5 py-2.5 bg-black hover:bg-neutral-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md cursor-pointer'
+                    >
+                      <FaPlus />
+                      <span>List a Guest House</span>
+                    </button>
+                    <button
+                      type='button'
+                      onClick={() => setPortalTab('new_car')}
+                      className='px-5 py-2.5 bg-black hover:bg-neutral-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md cursor-pointer'
+                    >
+                      <FaPlus />
+                      <span>List a Vehicle</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* TAB 2: LIST A GUEST HOUSE */}
+          {/* ========================================================================= */}
+          {portalTab === 'new_house' && (
+            <div className='bg-white rounded-3xl border border-neutral-200 p-6 sm:p-10 shadow-sm space-y-6'>
+              <div className='border-b border-neutral-100 pb-4'>
+                <span className='text-[11px] font-extrabold uppercase tracking-wider text-neutral-400'>
+                  Add Property to chento 100
+                </span>
+                <h2 className='text-2xl font-bold text-neutral-900 mt-0.5'>
+                  List a Guest House, Studio, or Villa
+                </h2>
+                <p className='text-xs text-neutral-500 mt-1 leading-relaxed'>
+                  Provide details about your guest accommodation. Upon submission, it will enter administrative review and you can manage its live availability anytime.
+                </p>
+              </div>
+
+              <form onSubmit={handleCreateGuestHouse} className='space-y-6'>
+                <div className='grid grid-cols-1 md:grid-cols-2 gap-5'>
+                  {/* Title */}
+                  <div className='md:col-span-2'>
+                    <label className='block text-xs font-bold text-neutral-800 mb-1.5'>
+                      Property Title *
+                    </label>
+                    <input
+                      type='text'
+                      value={ghForm.title}
+                      onChange={(e) => setGhForm({ ...ghForm, title: e.target.value })}
+                      placeholder='e.g. Modern Sunset Boutique Villa with Backup Generator'
+                      className='w-full p-3 bg-neutral-50 border border-neutral-200 rounded-xl text-sm focus:outline-hidden focus:border-black focus:bg-white'
+                      required
+                    />
+                  </div>
+
+                  {/* City */}
+                  <div>
+                    <label className='block text-xs font-bold text-neutral-800 mb-1.5'>
+                      City / Region *
+                    </label>
+                    <select
+                      value={ghForm.city}
+                      onChange={(e) => setGhForm({ ...ghForm, city: e.target.value })}
+                      className='w-full p-3 bg-neutral-50 border border-neutral-200 rounded-xl text-sm focus:outline-hidden focus:border-black focus:bg-white'
+                    >
+                      <option value='Asmara'>Asmara (Capital)</option>
+                      <option value='Massawa'>Massawa (Red Sea Coast)</option>
+                      <option value='Keren'>Keren (Highlands)</option>
+                      <option value='Assab'>Assab</option>
+                      <option value='Other'>Other Destination</option>
+                    </select>
+                  </div>
+
+                  {/* Neighborhood / Address */}
+                  <div>
+                    <label className='block text-xs font-bold text-neutral-800 mb-1.5'>
+                      Neighborhood / Address
+                    </label>
+                    <input
+                      type='text'
+                      value={ghForm.address}
+                      onChange={(e) => setGhForm({ ...ghForm, address: e.target.value })}
+                      placeholder='e.g. Tiravolo, near Italian Embassy'
+                      className='w-full p-3 bg-neutral-50 border border-neutral-200 rounded-xl text-sm focus:outline-hidden focus:border-black focus:bg-white'
+                    />
+                  </div>
+
+                  {/* Nightly Price */}
+                  <div>
+                    <label className='block text-xs font-bold text-neutral-800 mb-1.5'>
+                      Nightly Rate (USD) *
+                    </label>
+                    <input
+                      type='number'
+                      min='10'
+                      max='2000'
+                      value={ghForm.price}
+                      onChange={(e) => setGhForm({ ...ghForm, price: e.target.value })}
+                      className='w-full p-3 bg-neutral-50 border border-neutral-200 rounded-xl text-sm focus:outline-hidden focus:border-black focus:bg-white'
+                      required
+                    />
+                  </div>
+
+                  {/* Specs: Bedrooms, Baths, Max Guests */}
+                  <div className='grid grid-cols-3 gap-2'>
+                    <div>
+                      <label className='block text-[11px] font-bold text-neutral-800 mb-1.5'>
+                        Bedrooms
+                      </label>
+                      <input
+                        type='number'
+                        min='1'
+                        max='20'
+                        value={ghForm.bedrooms}
+                        onChange={(e) => setGhForm({ ...ghForm, bedrooms: e.target.value })}
+                        className='w-full p-3 bg-neutral-50 border border-neutral-200 rounded-xl text-sm'
+                      />
+                    </div>
+                    <div>
+                      <label className='block text-[11px] font-bold text-neutral-800 mb-1.5'>
+                        Bathrooms
+                      </label>
+                      <input
+                        type='number'
+                        min='1'
+                        max='10'
+                        value={ghForm.bathrooms}
+                        onChange={(e) => setGhForm({ ...ghForm, bathrooms: e.target.value })}
+                        className='w-full p-3 bg-neutral-50 border border-neutral-200 rounded-xl text-sm'
+                      />
+                    </div>
+                    <div>
+                      <label className='block text-[11px] font-bold text-neutral-800 mb-1.5'>
+                        Max Guests
+                      </label>
+                      <input
+                        type='number'
+                        min='1'
+                        max='30'
+                        value={ghForm.maxGuests}
+                        onChange={(e) => setGhForm({ ...ghForm, maxGuests: e.target.value })}
+                        className='w-full p-3 bg-neutral-50 border border-neutral-200 rounded-xl text-sm'
+                      />
+                    </div>
+                  </div>
+
+                  {/* Description */}
+                  <div className='md:col-span-2'>
+                    <label className='block text-xs font-bold text-neutral-800 mb-1.5'>
+                      Description
+                    </label>
+                    <textarea
+                      rows='3'
+                      value={ghForm.description}
+                      onChange={(e) => setGhForm({ ...ghForm, description: e.target.value })}
+                      placeholder='Describe your accommodation, neighborhood, peace of mind, backup water/power features...'
+                      className='w-full p-3 bg-neutral-50 border border-neutral-200 rounded-xl text-sm focus:outline-hidden focus:border-black focus:bg-white'
+                    />
+                  </div>
+
+                  {/* Amenities */}
+                  <div className='md:col-span-2'>
+                    <label className='block text-xs font-bold text-neutral-800 mb-1.5'>
+                      Amenities (comma separated)
+                    </label>
+                    <input
+                      type='text'
+                      value={ghForm.amenities}
+                      onChange={(e) => setGhForm({ ...ghForm, amenities: e.target.value })}
+                      placeholder='WiFi, Air Conditioning, Hot Water, Backup Generator, Kitchen, Free Parking'
+                      className='w-full p-3 bg-neutral-50 border border-neutral-200 rounded-xl text-sm focus:outline-hidden focus:border-black focus:bg-white'
+                    />
+                  </div>
+
+                  {/* Photo Management */}
+                  <div className='md:col-span-2 space-y-2'>
+                    <label className='block text-xs font-bold text-neutral-800 mb-1 flex items-center justify-between'>
+                      <span>Property Photos</span>
+                      <span className='text-neutral-400 font-normal text-[11px]'>
+                        Add image URL or use curated templates
+                      </span>
+                    </label>
+                    <div className='flex gap-2'>
+                      <input
+                        type='url'
+                        placeholder='Paste direct image URL (https://...)'
+                        value={ghForm.customImageUrl}
+                        onChange={(e) => setGhForm({ ...ghForm, customImageUrl: e.target.value })}
+                        className='flex-1 p-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-xs'
+                      />
+                      <button
+                        type='button'
+                        onClick={() => {
+                          if (ghForm.customImageUrl.trim()) {
+                            setGhForm({
+                              ...ghForm,
+                              imageUrls: [...ghForm.imageUrls, ghForm.customImageUrl.trim()],
+                              customImageUrl: '',
+                            });
+                          }
+                        }}
+                        className='px-4 py-2 bg-black hover:bg-neutral-800 text-white rounded-xl text-xs font-bold transition shadow-xs'
+                      >
+                        Add Photo
+                      </button>
+                    </div>
+
+                    <div className='flex flex-wrap gap-2 pt-2'>
+                      {ghForm.imageUrls.map((url, i) => (
+                        <div key={i} className='relative w-20 h-20 rounded-xl overflow-hidden border border-neutral-200 group'>
+                          <img src={url} alt='' className='w-full h-full object-cover' />
+                          <button
+                            type='button'
+                            onClick={() =>
+                              setGhForm({
+                                ...ghForm,
+                                imageUrls: ghForm.imageUrls.filter((_, idx) => idx !== i),
+                              })
+                            }
+                            className='absolute inset-0 bg-black/60 text-white opacity-0 group-hover:opacity-100 flex items-center justify-center transition text-xs font-bold'
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className='pt-4 border-t border-neutral-100 flex items-center justify-between'>
+                  <button
+                    type='button'
+                    onClick={() => setPortalTab('listings')}
+                    className='px-5 py-2.5 border border-neutral-300 hover:bg-neutral-100 rounded-xl text-xs font-bold transition'
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type='submit'
+                    disabled={formSubmitting}
+                    className='px-6 py-3 bg-black hover:bg-neutral-800 text-white rounded-xl text-xs font-bold transition shadow-md flex items-center gap-2 cursor-pointer disabled:opacity-60'
+                  >
+                    <FaCheck />
+                    <span>{formSubmitting ? 'Publishing...' : 'Publish Guest House Listing'}</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* TAB 3: LIST A VEHICLE */}
+          {/* ========================================================================= */}
+          {portalTab === 'new_car' && (
+            <div className='bg-white rounded-3xl border border-neutral-200 p-6 sm:p-10 shadow-sm space-y-6'>
+              <div className='border-b border-neutral-100 pb-4'>
+                <span className='text-[11px] font-extrabold uppercase tracking-wider text-neutral-400'>
+                  Add Vehicle to chento 100 Fleet
+                </span>
+                <h2 className='text-2xl font-bold text-neutral-900 mt-0.5'>
+                  List a Private Car, SUV, or Chauffeur Service
+                </h2>
+                <p className='text-xs text-neutral-500 mt-1 leading-relaxed'>
+                  Offer airport transfers, corporate rides, or cross-country tours. Set your daily rate and manage vehicle availability anytime.
+                </p>
+              </div>
+
+              <form onSubmit={handleCreateVehicle} className='space-y-6'>
+                <div className='grid grid-cols-1 md:grid-cols-2 gap-5'>
+                  {/* Make & Model */}
+                  <div>
+                    <label className='block text-xs font-bold text-neutral-800 mb-1.5'>
+                      Vehicle Make *
+                    </label>
+                    <input
+                      type='text'
+                      value={carForm.make}
+                      onChange={(e) => setCarForm({ ...carForm, make: e.target.value })}
+                      placeholder='Toyota, Nissan, Hyundai, Mercedes...'
+                      className='w-full p-3 bg-neutral-50 border border-neutral-200 rounded-xl text-sm focus:outline-hidden focus:border-black focus:bg-white'
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className='block text-xs font-bold text-neutral-800 mb-1.5'>
+                      Vehicle Model *
+                    </label>
+                    <input
+                      type='text'
+                      value={carForm.model}
+                      onChange={(e) => setCarForm({ ...carForm, model: e.target.value })}
+                      placeholder='Land Cruiser Prado, Corolla, RAV4...'
+                      className='w-full p-3 bg-neutral-50 border border-neutral-200 rounded-xl text-sm focus:outline-hidden focus:border-black focus:bg-white'
+                      required
+                    />
+                  </div>
+
+                  {/* Title / Headline */}
+                  <div className='md:col-span-2'>
+                    <label className='block text-xs font-bold text-neutral-800 mb-1.5'>
+                      Listing Headline
+                    </label>
+                    <input
+                      type='text'
+                      value={carForm.title}
+                      onChange={(e) => setCarForm({ ...carForm, title: e.target.value })}
+                      placeholder='e.g. Executive Prado 4x4 with Chauffeur for Airport & Tours'
+                      className='w-full p-3 bg-neutral-50 border border-neutral-200 rounded-xl text-sm focus:outline-hidden focus:border-black focus:bg-white'
+                    />
+                  </div>
+
+                  {/* Daily Price */}
+                  <div>
+                    <label className='block text-xs font-bold text-neutral-800 mb-1.5'>
+                      Daily Lease Rate (USD) *
+                    </label>
+                    <input
+                      type='number'
+                      min='20'
+                      max='1500'
+                      value={carForm.price}
+                      onChange={(e) => setCarForm({ ...carForm, price: e.target.value })}
+                      className='w-full p-3 bg-neutral-50 border border-neutral-200 rounded-xl text-sm focus:outline-hidden focus:border-black focus:bg-white'
+                      required
+                    />
+                  </div>
+
+                  {/* Year */}
+                  <div>
+                    <label className='block text-xs font-bold text-neutral-800 mb-1.5'>
+                      Model Year
+                    </label>
+                    <input
+                      type='number'
+                      min='2000'
+                      max={new Date().getFullYear() + 1}
+                      value={carForm.year}
+                      onChange={(e) => setCarForm({ ...carForm, year: e.target.value })}
+                      className='w-full p-3 bg-neutral-50 border border-neutral-200 rounded-xl text-sm'
+                    />
+                  </div>
+
+                  {/* Transmission and Seats */}
+                  <div>
+                    <label className='block text-xs font-bold text-neutral-800 mb-1.5'>
+                      Transmission
+                    </label>
+                    <select
+                      value={carForm.transmission}
+                      onChange={(e) => setCarForm({ ...carForm, transmission: e.target.value })}
+                      className='w-full p-3 bg-neutral-50 border border-neutral-200 rounded-xl text-sm'
+                    >
+                      <option value='Automatic'>Automatic</option>
+                      <option value='Manual'>Manual</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className='block text-xs font-bold text-neutral-800 mb-1.5'>
+                      Seating Capacity
+                    </label>
+                    <input
+                      type='number'
+                      min='2'
+                      max='15'
+                      value={carForm.seats}
+                      onChange={(e) => setCarForm({ ...carForm, seats: e.target.value })}
+                      className='w-full p-3 bg-neutral-50 border border-neutral-200 rounded-xl text-sm'
+                    />
+                  </div>
+
+                  {/* Driver Options */}
+                  <div className='md:col-span-2 p-4 bg-neutral-50 rounded-2xl border border-neutral-200 space-y-3'>
+                    <div className='flex items-center gap-3'>
+                      <input
+                        type='checkbox'
+                        id='driverIncludedCheck'
+                        checked={carForm.driverIncluded}
+                        onChange={(e) => setCarForm({ ...carForm, driverIncluded: e.target.checked })}
+                        className='w-4 h-4 accent-black'
+                      />
+                      <label htmlFor='driverIncludedCheck' className='text-xs font-bold text-neutral-900 cursor-pointer'>
+                        Professional Chauffeur / Driver Included in Rate
+                      </label>
+                    </div>
+
+                    {carForm.driverIncluded && (
+                      <div className='grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1'>
+                        <div>
+                          <label className='block text-[11px] font-bold text-neutral-700 mb-1'>
+                            Driver Name
+                          </label>
+                          <input
+                            type='text'
+                            value={carForm.driverName}
+                            onChange={(e) => setCarForm({ ...carForm, driverName: e.target.value })}
+                            placeholder='e.g. Marcus Vance'
+                            className='w-full p-2.5 bg-white border border-neutral-300 rounded-xl text-xs'
+                          />
+                        </div>
+                        <div>
+                          <label className='block text-[11px] font-bold text-neutral-700 mb-1'>
+                            Driver Phone / WhatsApp
+                          </label>
+                          <input
+                            type='tel'
+                            value={carForm.driverContact}
+                            onChange={(e) => setCarForm({ ...carForm, driverContact: e.target.value })}
+                            placeholder='+291 7 123 456'
+                            className='w-full p-2.5 bg-white border border-neutral-300 rounded-xl text-xs'
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Description */}
+                  <div className='md:col-span-2'>
+                    <label className='block text-xs font-bold text-neutral-800 mb-1.5'>
+                      Description
+                    </label>
+                    <textarea
+                      rows='3'
+                      value={carForm.description}
+                      onChange={(e) => setCarForm({ ...carForm, description: e.target.value })}
+                      placeholder='Highlight AC condition, clean leather seats, airport pickup availability, fuel terms...'
+                      className='w-full p-3 bg-neutral-50 border border-neutral-200 rounded-xl text-sm focus:outline-hidden focus:border-black focus:bg-white'
+                    />
+                  </div>
+
+                  {/* Photos */}
+                  <div className='md:col-span-2 space-y-2'>
+                    <label className='block text-xs font-bold text-neutral-800 mb-1 flex items-center justify-between'>
+                      <span>Vehicle Photos</span>
+                      <span className='text-neutral-400 font-normal text-[11px]'>
+                        Add image URL or use curated templates
+                      </span>
+                    </label>
+                    <div className='flex gap-2'>
+                      <input
+                        type='url'
+                        placeholder='Paste direct image URL (https://...)'
+                        value={carForm.customImageUrl}
+                        onChange={(e) => setCarForm({ ...carForm, customImageUrl: e.target.value })}
+                        className='flex-1 p-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-xs'
+                      />
+                      <button
+                        type='button'
+                        onClick={() => {
+                          if (carForm.customImageUrl.trim()) {
+                            setCarForm({
+                              ...carForm,
+                              imageUrls: [...carForm.imageUrls, carForm.customImageUrl.trim()],
+                              customImageUrl: '',
+                            });
+                          }
+                        }}
+                        className='px-4 py-2 bg-black hover:bg-neutral-800 text-white rounded-xl text-xs font-bold transition shadow-xs'
+                      >
+                        Add Photo
+                      </button>
+                    </div>
+
+                    <div className='flex flex-wrap gap-2 pt-2'>
+                      {carForm.imageUrls.map((url, i) => (
+                        <div key={i} className='relative w-20 h-20 rounded-xl overflow-hidden border border-neutral-200 group'>
+                          <img src={url} alt='' className='w-full h-full object-cover' />
+                          <button
+                            type='button'
+                            onClick={() =>
+                              setCarForm({
+                                ...carForm,
+                                imageUrls: carForm.imageUrls.filter((_, idx) => idx !== i),
+                              })
+                            }
+                            className='absolute inset-0 bg-black/60 text-white opacity-0 group-hover:opacity-100 flex items-center justify-center transition text-xs font-bold'
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className='pt-4 border-t border-neutral-100 flex items-center justify-between'>
+                  <button
+                    type='button'
+                    onClick={() => setPortalTab('listings')}
+                    className='px-5 py-2.5 border border-neutral-300 hover:bg-neutral-100 rounded-xl text-xs font-bold transition'
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type='submit'
+                    disabled={formSubmitting}
+                    className='px-6 py-3 bg-black hover:bg-neutral-800 text-white rounded-xl text-xs font-bold transition shadow-md flex items-center gap-2 cursor-pointer disabled:opacity-60'
+                  >
+                    <FaCheck />
+                    <span>{formSubmitting ? 'Publishing...' : 'Publish Vehicle Listing'}</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* TAB 4: AVAILABILITY & CALENDAR MANAGER */}
+          {/* ========================================================================= */}
+          {portalTab === 'availability' && (
+            <div className='bg-white rounded-3xl border border-neutral-200 p-6 sm:p-10 shadow-sm space-y-6'>
+              <div className='border-b border-neutral-100 pb-4'>
+                <span className='text-[11px] font-extrabold uppercase tracking-wider text-neutral-400'>
+                  Real-Time Calendar Control
+                </span>
+                <h2 className='text-2xl font-bold text-neutral-900 mt-0.5'>
+                  Listing Availability &amp; Booking Status
+                </h2>
+                <p className='text-xs text-neutral-500 mt-1 leading-relaxed'>
+                  Toggle availability on any listing anytime with 1 click, or block specific date ranges when your property or vehicle is reserved. Changes take effect on the live marketplace immediately.
+                </p>
+              </div>
+
+              {listings.length > 0 ? (
+                <div className='space-y-4'>
+                  {listings.map((item) => {
+                    const isAvail = item.isAvailable !== false && item.available !== false;
+                    const isGH = item.type === 'guesthouse' || item.category === 'guesthouse';
+
+                    return (
+                      <div
+                        key={item.id}
+                        className='p-4 sm:p-5 rounded-2xl border border-neutral-200 bg-neutral-50 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 transition hover:bg-white hover:border-neutral-300'
+                      >
+                        <div className='flex items-center gap-3.5'>
+                          <div className='w-12 h-12 rounded-xl overflow-hidden bg-neutral-200 shrink-0 border border-neutral-200'>
+                            <img
+                              src={item.images?.[0] || item.imageUrls?.[0] || '/images/airbnb_apartment_living.jpg'}
+                              alt=''
+                              className='w-full h-full object-cover'
+                            />
+                          </div>
+                          <div>
+                            <div className='flex items-center gap-2'>
+                              <h4 className='font-bold text-neutral-900 text-sm'>
+                                {item.title || item.name}
+                              </h4>
+                              <span className='text-[10px] text-neutral-500 uppercase'>
+                                ({isGH ? 'Property' : 'Vehicle'})
+                              </span>
+                            </div>
+                            <div className='flex items-center gap-2 text-xs text-neutral-500 mt-0.5'>
+                              <span>${item.price}/{item.priceUnit || (isGH ? 'night' : 'day')}</span>
+                              <span>•</span>
+                              <span>{item.city || 'Asmara'}</span>
+                              {item.availabilityNotes && (
+                                <>
+                                  <span>•</span>
+                                  <span className='text-rose-600 font-medium'>
+                                    {item.availabilityNotes}
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className='flex items-center gap-2 w-full md:w-auto justify-end flex-wrap'>
+                          <span
+                            className={`px-3 py-1 rounded-full text-xs font-bold ${
+                              isAvail
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : 'bg-rose-100 text-rose-800'
+                            }`}
+                          >
+                            {isAvail ? '🟢 Available Now' : '🔴 Blocked / Booked'}
+                          </span>
+
+                          <button
+                            type='button'
+                            onClick={() => handleToggleAvailability(item)}
+                            className='px-3.5 py-1.5 bg-black hover:bg-neutral-800 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer'
+                          >
+                            {isAvail ? 'Turn Off (Block)' : 'Turn On (Available)'}
+                          </button>
+
+                          <button
+                            type='button'
+                            onClick={() => setAvailModalListing(item)}
+                            className='px-3.5 py-1.5 bg-black hover:bg-neutral-800 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer'
+                          >
+                            Set Dates
+                          </button>
+
+                          <button
+                            type='button'
+                            onClick={() => setShareModalListing(item)}
+                            className='px-3 py-1.5 bg-black hover:bg-neutral-800 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer'
+                            title='Share'
+                          >
+                            <FaShareAlt />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className='text-center py-8 text-neutral-500 text-xs'>
+                  You have not created any listings yet. Create a guest house or vehicle listing first to manage its availability.
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+      )}
+    </div>
+  );
+}

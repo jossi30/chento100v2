@@ -336,6 +336,20 @@ export default function CreateListing() {
         {t('create.title') || 'Create a New Listing'}
       </h1>
 
+      {/* Partner Portal Shortcut Banner */}
+      <div className='mb-6 p-4 bg-black text-white rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 shadow-md'>
+        <div>
+          <p className='font-bold text-sm text-white'>New: Partner with Us Host Portal</p>
+          <p className='text-xs text-neutral-300'>Manage live calendar availability, instant WhatsApp sharing, and register properties or vehicles.</p>
+        </div>
+        <Link
+          to='/partner'
+          className='px-4 py-2 bg-white text-black hover:bg-neutral-100 rounded-xl text-xs font-bold transition shrink-0'
+        >
+          Open Partner Portal →
+        </Link>
+      </div>
+
       {/* Email Verification Required Warning Banner */}
       {!isEmailVerified && (
         <div className='mb-6 p-4 bg-amber-50 border border-amber-300 rounded-2xl text-amber-900 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs'>
@@ -1151,7 +1165,7 @@ export default function CreateListing() {
           <button
             type='submit'
             disabled={loading || uploading || !isEmailVerified}
-            className='p-3.5 bg-slate-900 text-white rounded-lg uppercase hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed font-semibold tracking-wide transition shadow-sm cursor-pointer'
+            className='p-3.5 bg-black text-white rounded-lg uppercase hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed font-semibold tracking-wide transition shadow-sm cursor-pointer'
           >
             {!isEmailVerified ? 'Verify Email to Submit Listing' : loading ? 'Submitting...' : 'Submit Listing for Review'}
           </button>

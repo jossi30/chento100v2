@@ -9,16 +9,56 @@ import { firebaseStore } from '../utils/firebaseStore.js';
 const isDbConnected = () => mongoose.connection.readyState === 1;
 
 export const signup = async (req, res, next) => {
-  const { username, email, password } = req.body;
+  const { username, name, displayName, email, password, phone, phoneNumber, role, accountType, hostType } = req.body;
+  if (!email || !password) {
+    return next(errorHandler(400, 'Email and password are required!'));
+  }
+
+  const resolvedName = name || displayName || username || email.split('@')[0];
+  const resolvedPhone = phone || phoneNumber || '';
+  const resolvedRole = role || (accountType === 'host' ? 'host' : 'user');
+  const resolvedAccountType = accountType || (role === 'host' ? 'host' : 'user');
   const hashedPassword = bcryptjs.hashSync(password, 10);
+
+  const userData = {
+    username: resolvedName,
+    displayName: resolvedName,
+    name: resolvedName,
+    email: email.trim().toLowerCase(),
+    phone: resolvedPhone,
+    phoneNumber: resolvedPhone,
+    password: hashedPassword,
+    role: resolvedRole,
+    accountType: resolvedAccountType,
+    hostType: hostType || '',
+    registeredAsPartner: resolvedAccountType === 'host' || Boolean(hostType),
+    emailVerified: true,
+  };
+
   try {
-    firebaseStore.createUser({ username, email, password: hashedPassword });
-    mockStore.createUser({ username, email, password: hashedPassword });
+    const createdUser = mockStore.createUser(userData);
+    firebaseStore.createUser(userData);
 
     if (isDbConnected()) {
-      User.create({ username, email, password: hashedPassword }).catch(() => {});
+      User.create(userData).catch(() => {});
     }
-    return res.status(201).json('User created successfully!');
+
+    const jwtSecret = process.env.JWT_SECRET || 'mern_estate_jwt_secret_key_default';
+    const token = jwt.sign(
+      { id: createdUser._id, role: createdUser.role, isAdmin: Boolean(createdUser.isAdmin) },
+      jwtSecret
+    );
+    const { password: pass, ...rest } = createdUser;
+
+    return res
+      .cookie('access_token', token, {
+        httpOnly: true,
+        sameSite: 'none',
+        secure: true,
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+      })
+      .status(201)
+      .json({ success: true, message: 'User registered successfully!', ...rest, token });
   } catch (error) {
     next(error);
   }

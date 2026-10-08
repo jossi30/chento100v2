@@ -6,8 +6,12 @@ import SignUp from './pages/SignUp';
 import ForgotPassword from './pages/ForgotPassword';
 import VerifyEmail from './pages/VerifyEmail';
 import About from './pages/About';
+import Contact from './pages/Contact';
+import Terms from './pages/Terms';
+import Privacy from './pages/Privacy';
 import Profile from './pages/Profile';
 import Header from './components/Header';
+import Footer from './components/Footer';
 import PrivateRoute from './components/PrivateRoute';
 import CreateListing from './pages/CreateListing';
 import UpdateListing from './pages/UpdateListing';
@@ -15,6 +19,7 @@ import Listing from './pages/Listing';
 import Search from './pages/Search';
 import AdminDashboard from './pages/AdminDashboard';
 import NotFound from './pages/NotFound';
+import Partner from './pages/Partner';
 import AdminRoute from './components/AdminRoute';
 import { LanguageProvider } from './context/LanguageContext';
 
@@ -38,9 +43,14 @@ function AppRoutes() {
         <Route path='/forgot-password' element={<ForgotPassword />} />
         <Route path='/verify-email' element={<VerifyEmail />} />
         <Route path='/about' element={<About />} />
+        <Route path='/contact' element={<Contact />} />
+        <Route path='/terms' element={<Terms />} />
+        <Route path='/privacy' element={<Privacy />} />
         <Route path='/search' element={<Search />} />
         <Route path='/listings' element={<Search />} />
         <Route path='/listing/:listingId' element={<Listing />} />
+        <Route path='/partner' element={<Partner />} />
+        <Route path='/host' element={<Partner />} />
 
         <Route element={<PrivateRoute />}>
           <Route path='/profile' element={<Profile />} />
@@ -69,6 +79,7 @@ export default function App() {
         <ScrollToTop />
         <Header />
         <AppRoutes />
+        <Footer />
       </BrowserRouter>
     </LanguageProvider>
   );

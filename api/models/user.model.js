@@ -32,12 +32,36 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ['user', 'admin'],
+      enum: ['user', 'admin', 'host'],
       default: 'user',
       set: function (val) {
         if (val === 'admin') this.isAdmin = true;
         return val;
       },
+    },
+    displayName: {
+      type: String,
+      default: '',
+    },
+    name: {
+      type: String,
+      default: '',
+    },
+    phone: {
+      type: String,
+      default: '',
+    },
+    phoneNumber: {
+      type: String,
+      default: '',
+    },
+    accountType: {
+      type: String,
+      default: 'user',
+    },
+    hostType: {
+      type: String,
+      default: '',
     },
   },
   { timestamps: true }
