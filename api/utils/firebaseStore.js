@@ -44,7 +44,9 @@ export const firebaseStore = {
   getUserByEmail: (email) => mockStore.findUserByEmail(email),
   createUser: (data) => mockStore.createUser(data),
   updateUser: (id, updates) => mockStore.updateUser(id, updates),
-  getUsers: () => Array.from(mockStore.users.values()),
+  deleteUser: (id) => mockStore.deleteUser(id),
+  getUsers: () => (typeof mockStore.getAllUsers === 'function' ? mockStore.getAllUsers() : []),
+  getAllUsers: () => (typeof mockStore.getAllUsers === 'function' ? mockStore.getAllUsers() : []),
 
   getAdminStats: () => {
     const list = storage.getAllListings();

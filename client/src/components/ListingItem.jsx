@@ -48,17 +48,17 @@ export default function ListingItem({ listing, showStatus = false, onEdit, onArc
         {/* Category Pill */}
         <div className='absolute top-3 left-3 flex items-center gap-1.5'>
           <span className='bg-slate-900/85 backdrop-blur-md text-white text-[11px] font-semibold px-2.5 py-1 rounded-full shadow-xs border border-white/10'>
-            {isGuestHouse ? 'Guest House' : 'Car Leasing'}
+            {isGuestHouse ? t('listing.guestHouse') : t('listing.carLeasing')}
           </span>
           {listing?.featured && (
             <span className='bg-amber-500 text-slate-950 text-[10px] font-extrabold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm'>
               <MdStar className='text-xs' />
-              Featured
+              {t('listing.featured')}
             </span>
           )}
           {listing && (listing.isAvailable === false || listing.available === false) && (
             <span className='bg-rose-600/90 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow-sm'>
-              Booked
+              {t('listing.booked')}
             </span>
           )}
         </div>
@@ -102,29 +102,29 @@ export default function ListingItem({ listing, showStatus = false, onEdit, onArc
             <>
               <span className='flex items-center gap-1' title='Bedrooms'>
                 <FaBed className='text-slate-400' />
-                {listing?.bedrooms || 1} beds
+                {listing?.bedrooms || 1} {t('listing.beds')}
               </span>
               <span className='flex items-center gap-1' title='Bathrooms'>
                 <FaBath className='text-slate-400' />
-                {listing?.bathrooms || 1} baths
+                {listing?.bathrooms || 1} {t('listing.baths')}
               </span>
               <span className='flex items-center gap-1' title='Guests'>
                 <FaUserFriends className='text-slate-400' />
-                {listing?.maxGuests || 2} max
+                {listing?.maxGuests || 2} {t('listing.max')}
               </span>
             </>
           ) : (
             <>
               <span className='flex items-center gap-1' title='Seats'>
                 <FaCar className='text-slate-400' />
-                {listing?.seats || 4} seats
+                {listing?.seats || 4} {t('listing.seats')}
               </span>
               <span className='flex items-center gap-1' title='Transmission'>
                 <FaCogs className='text-slate-400' />
                 <span className='capitalize'>{listing?.transmission || 'Auto'}</span>
               </span>
               <span className='flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded'>
-                {listing?.driverIncluded ? 'With Driver' : 'Self-Drive'}
+                {listing?.driverIncluded ? t('listing.withDriver') : t('listing.selfDrive')}
               </span>
             </>
           )}
@@ -144,7 +144,7 @@ export default function ListingItem({ listing, showStatus = false, onEdit, onArc
             to={`/listing/${listingId}`}
             className='px-3.5 py-1.5 bg-black hover:bg-neutral-800 text-white rounded-lg text-xs font-semibold transition flex items-center gap-1 shadow-xs'
           >
-            <span>View</span>
+            <span>{t('listing.view')}</span>
             <span>→</span>
           </Link>
         </div>
@@ -158,7 +158,7 @@ export default function ListingItem({ listing, showStatus = false, onEdit, onArc
                 onClick={() => onEdit(listing)}
                 className='px-2.5 py-1 text-slate-700 bg-slate-100 hover:bg-slate-200 rounded font-semibold transition'
               >
-                Edit
+                {t('listing.edit')}
               </button>
             )}
             {onArchive && status !== 'archived' && (
@@ -167,7 +167,7 @@ export default function ListingItem({ listing, showStatus = false, onEdit, onArc
                 onClick={() => onArchive(listingId)}
                 className='px-2.5 py-1 text-slate-600 hover:text-slate-900 rounded transition'
               >
-                Archive
+                {t('listing.archive')}
               </button>
             )}
             {onDelete && (
@@ -176,7 +176,7 @@ export default function ListingItem({ listing, showStatus = false, onEdit, onArc
                 onClick={() => onDelete(listingId)}
                 className='px-2.5 py-1 text-rose-600 hover:text-rose-800 rounded font-medium transition ml-auto'
               >
-                Delete
+                {t('listing.delete')}
               </button>
             )}
           </div>

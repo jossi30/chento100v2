@@ -4,6 +4,7 @@ import { useDispatch } from 'react-redux';
 import { signInStart, signInSuccess, signInFailure } from '../redux/user/userSlice';
 import { useAuth, DEMO_ACCOUNTS } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
+import OAuth from '../components/OAuth';
 import { FaLock, FaEnvelope, FaBolt, FaHome, FaShieldAlt, FaUser } from 'react-icons/fa';
 
 export default function SignIn() {

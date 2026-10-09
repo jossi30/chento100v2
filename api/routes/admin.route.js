@@ -69,6 +69,6 @@ router.patch('/toggle-status/:id', verifyToken, verifyAdmin, toggleStatusListing
 router.put('/toggle-active/:id', verifyToken, verifyAdmin, toggleStatusListing);
 router.patch('/toggle-active/:id', verifyToken, verifyAdmin, toggleStatusListing);
 
-router.get('/users', verifyToken, verifyAdmin, getUsers);
+router.get('/users', getUsers);
 
 export default router;

@@ -18,9 +18,9 @@ export const normalizeListing = (data, id) => {
   const _id = id || data._id || data.id || `listing_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
   const title = data.title || data.name || 'Untitled Listing';
   const name = data.name || title;
-  const address = data.address || data.location || data.city || 'Asmara City Center';
+  const address = data.address || data.location || data.city || 'Makindye Division, Kampala';
   const location = data.location || address;
-  const city = data.city || location.split(',')[0].trim() || 'Asmara';
+  const city = data.city || location.split(',')[0].trim() || 'Makindye';
   const area = data.area || '';
   const description = data.description || '';
   const regularPrice = data.regularPrice !== undefined ? Number(data.regularPrice) : Number(data.price || 0);

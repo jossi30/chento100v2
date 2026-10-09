@@ -7,6 +7,8 @@ import {
   updateListingAvailability,
   deleteListing,
 } from '../services/listingService';
+import CameraCaptureModal from '../components/CameraCaptureModal';
+import { compressImage } from '../utils/imageCompressor';
 import {
   FaHome,
   FaCar,
@@ -52,7 +54,7 @@ export default function Partner() {
   const [regPhone, setRegPhone] = useState('');
   const [regPassword, setRegPassword] = useState('');
   const [regPartnerType, setRegPartnerType] = useState('both'); // 'guesthouse' | 'car' | 'both'
-  const [regCity, setRegCity] = useState('Asmara');
+  const [regCity, setRegCity] = useState('Muyenga');
 
   // Sign In Form State
   const [loginEmail, setLoginEmail] = useState('');
@@ -86,16 +88,13 @@ export default function Partner() {
     title: '',
     description: '',
     address: '',
-    city: 'Asmara',
+    city: 'Muyenga',
     price: 65,
     bedrooms: 2,
     bathrooms: 1,
     maxGuests: 4,
     amenities: 'WiFi, Air Conditioning, Hot Water, Backup Generator, Kitchen',
-    imageUrls: [
-      '/images/airbnb_apartment_living.jpg',
-      '/images/airbnb_apartment_bed.jpg',
-    ],
+    imageUrls: [],
     customImageUrl: '',
   });
 
@@ -106,19 +105,22 @@ export default function Partner() {
     model: 'Land Cruiser Prado',
     year: 2022,
     description: '',
-    city: 'Asmara',
+    city: 'Makindye',
     price: 90,
     seats: 5,
     transmission: 'Automatic',
     driverIncluded: true,
     driverName: '',
     driverContact: '',
-    imageUrls: [
-      '/images/prado_chauffeur_suv.jpg',
-      '/images/city_regular_sedan.jpg',
-    ],
+    imageUrls: [],
     customImageUrl: '',
   });
+
+  // Camera & Local Photo Upload State
+  const [cameraModalOpen, setCameraModalOpen] = useState(false);
+  const [cameraTarget, setCameraTarget] = useState('gh'); // 'gh' | 'car'
+  const [isProcessingImages, setIsProcessingImages] = useState(false);
+  const [imageNotice, setImageNotice] = useState('');
 
   const [formSubmitting, setFormSubmitting] = useState(false);
 
@@ -335,6 +337,10 @@ export default function Partner() {
       showToast('Please provide a title for your guest house.');
       return;
     }
+    if (ghForm.imageUrls.length === 0) {
+      showToast('Please add at least one photo using your camera or device files.');
+      return;
+    }
 
     setFormSubmitting(true);
     try {
@@ -375,6 +381,8 @@ export default function Partner() {
         title: '',
         description: '',
         address: '',
+        imageUrls: [],
+        customImageUrl: '',
       }));
     } catch (err) {
       console.error('Error creating guest house:', err);
@@ -389,6 +397,10 @@ export default function Partner() {
     e.preventDefault();
     if (!carForm.title.trim() && (!carForm.make || !carForm.model)) {
       showToast('Please enter a vehicle make and model.');
+      return;
+    }
+    if (carForm.imageUrls.length === 0) {
+      showToast('Please add at least one photo using your camera or device files.');
       return;
     }
 
@@ -435,6 +447,8 @@ export default function Partner() {
         ...prev,
         title: '',
         description: '',
+        imageUrls: [],
+        customImageUrl: '',
       }));
     } catch (err) {
       console.error('Error creating vehicle:', err);
@@ -443,6 +457,80 @@ export default function Partner() {
       setFormSubmitting(false);
     }
   };
+
+  // Local device file upload handler for partner portal
+  const handleProcessLocalFiles = async (fileList, target = 'gh') => {
+    if (!fileList || fileList.length === 0) return;
+    const incomingFiles = Array.from(fileList).filter((f) => f.type.startsWith('image/'));
+    if (incomingFiles.length === 0) {
+      showToast('Please select valid image files (.jpg, .png, .webp).');
+      return;
+    }
+
+    setIsProcessingImages(true);
+    setImageNotice(`Optimizing ${incomingFiles.length} photo${incomingFiles.length > 1 ? 's' : ''} from your device...`);
+
+    try {
+      const compressedUrls = [];
+      for (const file of incomingFiles) {
+        const url = await compressImage(file, { maxWidth: 1600, maxHeight: 1600, quality: 0.82 });
+        if (url) compressedUrls.push(url);
+      }
+
+      if (compressedUrls.length > 0) {
+        if (target === 'gh') {
+          setGhForm((prev) => ({
+            ...prev,
+            imageUrls: [...prev.imageUrls, ...compressedUrls],
+          }));
+        } else {
+          setCarForm((prev) => ({
+            ...prev,
+            imageUrls: [...prev.imageUrls, ...compressedUrls],
+          }));
+        }
+        setImageNotice(`✓ Added ${compressedUrls.length} photo${compressedUrls.length > 1 ? 's' : ''} successfully!`);
+        setTimeout(() => setImageNotice(''), 3500);
+      }
+    } catch (err) {
+      console.error('Error processing local files in partner portal:', err);
+      showToast('Failed to process image files.');
+    } finally {
+      setIsProcessingImages(false);
+    }
+  };
+
+  // Device camera photo capture handler
+  const handleProcessCameraPhoto = async (file) => {
+    if (!file) return;
+    setIsProcessingImages(true);
+    setImageNotice('Optimizing photo captured with device camera...');
+    try {
+      const url = await compressImage(file, { maxWidth: 1600, maxHeight: 1600, quality: 0.82 });
+      if (url) {
+        if (cameraTarget === 'gh') {
+          setGhForm((prev) => ({
+            ...prev,
+            imageUrls: [...prev.imageUrls, url],
+          }));
+        } else {
+          setCarForm((prev) => ({
+            ...prev,
+            imageUrls: [...prev.imageUrls, url],
+          }));
+        }
+        setImageNotice('✓ Photo captured with camera added to listing!');
+        setTimeout(() => setImageNotice(''), 3500);
+      }
+    } catch (err) {
+      console.error('Camera capture error in partner portal:', err);
+      showToast('Failed to process camera photo.');
+    } finally {
+      setIsProcessingImages(false);
+    }
+  };
+
+
 
   // Delete Listing
   const handleDeleteListing = async (listingId, title) => {
@@ -765,7 +853,7 @@ export default function Partner() {
                 <div className='p-5 bg-white rounded-2xl border border-neutral-200 shadow-2xs space-y-1.5'>
                   <FaHome className='text-xl text-neutral-900' />
                   <h4 className='text-xs font-bold text-neutral-900'>Guest House Hosts</h4>
-                  <p className='text-[11px] text-neutral-500'>Apartments, villas, and family homes in Asmara, Massawa, and Keren.</p>
+                  <p className='text-[11px] text-neutral-500'>Apartments, villas, and family homes in Muyenga, Munyonyo, Buziga, and across Makindye Division.</p>
                 </div>
                 <div className='p-5 bg-white rounded-2xl border border-neutral-200 shadow-2xs space-y-1.5'>
                   <FaCar className='text-xl text-neutral-900' />
@@ -1256,7 +1344,7 @@ export default function Partner() {
 
                             <div className='flex items-center gap-1 text-xs text-neutral-500 truncate'>
                               <FaMapMarkerAlt className='text-rose-500 text-xs shrink-0' />
-                              <span className='truncate'>{listing.city || listing.address || 'Asmara'}</span>
+                              <span className='truncate'>{listing.city || listing.address || 'Makindye, Kampala'}</span>
                             </div>
 
                             {/* Blocked dates note if present */}
@@ -1403,31 +1491,43 @@ export default function Partner() {
                   {/* City */}
                   <div>
                     <label className='block text-xs font-bold text-neutral-800 mb-1.5'>
-                      City / Region *
+                      Neighborhood in Makindye Division *
                     </label>
                     <select
                       value={ghForm.city}
                       onChange={(e) => setGhForm({ ...ghForm, city: e.target.value })}
                       className='w-full p-3 bg-neutral-50 border border-neutral-200 rounded-xl text-sm focus:outline-hidden focus:border-black focus:bg-white'
                     >
-                      <option value='Asmara'>Asmara (Capital)</option>
-                      <option value='Massawa'>Massawa (Red Sea Coast)</option>
-                      <option value='Keren'>Keren (Highlands)</option>
-                      <option value='Assab'>Assab</option>
-                      <option value='Other'>Other Destination</option>
+                      <option value='Muyenga'>Muyenga (Tank Hill)</option>
+                      <option value='Munyonyo'>Munyonyo (Waterfront & Marina)</option>
+                      <option value='Buziga'>Buziga (Buziga Hill)</option>
+                      <option value='Ggaba'>Ggaba (Lake Victoria Shore)</option>
+                      <option value='Kansanga'>Kansanga (Ggaba Road Corridor)</option>
+                      <option value='Makindye'>Makindye (Makindye Hill / Division HQ)</option>
+                      <option value='Kabalagala'>Kabalagala (Dining & Entertainment)</option>
+                      <option value='Nsambya'>Nsambya (Historic Enclave)</option>
+                      <option value='Kibuli'>Kibuli (Scenic Hill)</option>
+                      <option value='Luwafu'>Luwafu (Residential)</option>
+                      <option value='Katwe'>Katwe</option>
+                      <option value='Kisugu'>Kisugu</option>
+                      <option value='Wabigalo'>Wabigalo</option>
+                      <option value='Salaama'>Salaama / Munyonyo Corridor</option>
+                      <option value='Lukuli'>Lukuli / Konge</option>
+                      <option value='Bunga'>Bunga</option>
+                      <option value='Other Makindye'>Other (Makindye Division, Kampala)</option>
                     </select>
                   </div>
 
                   {/* Neighborhood / Address */}
                   <div>
                     <label className='block text-xs font-bold text-neutral-800 mb-1.5'>
-                      Neighborhood / Address
+                      Street / Local Address
                     </label>
                     <input
                       type='text'
                       value={ghForm.address}
                       onChange={(e) => setGhForm({ ...ghForm, address: e.target.value })}
-                      placeholder='e.g. Tiravolo, near Italian Embassy'
+                      placeholder='e.g. Tank Hill Road, near Lake Victoria view'
                       className='w-full p-3 bg-neutral-50 border border-neutral-200 rounded-xl text-sm focus:outline-hidden focus:border-black focus:bg-white'
                     />
                   </div>
@@ -1520,57 +1620,206 @@ export default function Partner() {
                   </div>
 
                   {/* Photo Management */}
-                  <div className='md:col-span-2 space-y-2'>
-                    <label className='block text-xs font-bold text-neutral-800 mb-1 flex items-center justify-between'>
-                      <span>Property Photos</span>
-                      <span className='text-neutral-400 font-normal text-[11px]'>
-                        Add image URL or use curated templates
+                  <div className='md:col-span-2 space-y-3 bg-neutral-50 p-4 sm:p-5 rounded-2xl border border-neutral-200'>
+                    <div>
+                      <label className='block text-xs font-bold text-neutral-900'>
+                        Property Photos ({ghForm.imageUrls.length})
+                      </label>
+                      <span className='text-neutral-500 text-[11px] block'>
+                        {ghForm.imageUrls.length > 0
+                          ? 'The first photo serves as the main search cover'
+                          : 'Add property photos using device camera or file upload'}
                       </span>
-                    </label>
-                    <div className='flex gap-2'>
-                      <input
-                        type='url'
-                        placeholder='Paste direct image URL (https://...)'
-                        value={ghForm.customImageUrl}
-                        onChange={(e) => setGhForm({ ...ghForm, customImageUrl: e.target.value })}
-                        className='flex-1 p-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-xs'
-                      />
+                    </div>
+
+                    {/* Camera & Local File Upload Area */}
+                    <div className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
+                      {/* Option 1: Live Device Camera Capture */}
                       <button
                         type='button'
                         onClick={() => {
-                          if (ghForm.customImageUrl.trim()) {
-                            setGhForm({
-                              ...ghForm,
-                              imageUrls: [...ghForm.imageUrls, ghForm.customImageUrl.trim()],
-                              customImageUrl: '',
-                            });
-                          }
+                          setCameraTarget('gh');
+                          setCameraModalOpen(true);
                         }}
-                        className='px-4 py-2 bg-black hover:bg-neutral-800 text-white rounded-xl text-xs font-bold transition shadow-xs'
+                        id='partner-gh-open-camera-btn'
+                        className='flex flex-col items-center justify-center p-4 border-2 border-dashed border-indigo-300 hover:border-indigo-500 bg-indigo-50/50 hover:bg-indigo-50/90 rounded-2xl transition cursor-pointer group text-center'
                       >
-                        Add Photo
+                        <div className='w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center mb-1 group-hover:scale-110 transition'>
+                          <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                            <path
+                              strokeLinecap='round'
+                              strokeLinejoin='round'
+                              strokeWidth='2'
+                              d='M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z'
+                            />
+                            <circle cx='12' cy='13' r='3' strokeWidth='2' />
+                          </svg>
+                        </div>
+                        <span className='text-xs font-bold text-indigo-950 group-hover:text-indigo-900 flex items-center gap-1.5'>
+                          Take Photo with Camera
+                          <span className='text-[10px] bg-indigo-200/80 text-indigo-800 px-1.5 py-0.2 rounded-full font-medium'>
+                            Live
+                          </span>
+                        </span>
+                        <span className='text-[11px] text-neutral-500 mt-0.5'>
+                          Snap photos with laptop webcam or mobile camera
+                        </span>
                       </button>
+
+                      {/* Option 2: Choose Images from Device */}
+                      <div className='relative'>
+                        <input
+                          type='file'
+                          id='partner-gh-local-photos'
+                          accept='image/*'
+                          multiple
+                          onChange={(e) => {
+                            handleProcessLocalFiles(e.target.files, 'gh');
+                            e.target.value = '';
+                          }}
+                          className='hidden'
+                        />
+                        <label
+                          htmlFor='partner-gh-local-photos'
+                          onDragOver={(e) => e.preventDefault()}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            if (e.dataTransfer?.files) {
+                              handleProcessLocalFiles(e.dataTransfer.files, 'gh');
+                            }
+                          }}
+                          className='flex flex-col items-center justify-center p-4 border-2 border-dashed border-emerald-300 hover:border-emerald-500 bg-emerald-50/40 hover:bg-emerald-50/80 rounded-2xl transition cursor-pointer group text-center h-full'
+                        >
+                          <div className='w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mb-1 group-hover:scale-110 transition'>
+                            <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                              <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z' />
+                            </svg>
+                          </div>
+                          <span className='text-xs font-bold text-emerald-950 group-hover:text-emerald-900'>
+                            Choose Images from Device
+                          </span>
+                          <span className='text-[11px] text-neutral-500 mt-0.5'>
+                            Browse local files or drag &amp; drop photos (.jpg, .png)
+                          </span>
+                        </label>
+                      </div>
                     </div>
 
-                    <div className='flex flex-wrap gap-2 pt-2'>
-                      {ghForm.imageUrls.map((url, i) => (
-                        <div key={i} className='relative w-20 h-20 rounded-xl overflow-hidden border border-neutral-200 group'>
-                          <img src={url} alt='' className='w-full h-full object-cover' />
-                          <button
-                            type='button'
-                            onClick={() =>
+                    {/* Direct Mobile Quick Camera Trigger */}
+                    <div className='flex items-center justify-between px-3.5 py-2 bg-neutral-100 rounded-xl text-xs text-neutral-600 border border-neutral-200'>
+                      <span className='text-[11px] text-neutral-600 flex items-center gap-1.5'>
+                        <FaCamera className='text-neutral-500' />
+                        Mobile camera shortcut:
+                      </span>
+                      <input
+                        type='file'
+                        accept='image/*'
+                        capture='environment'
+                        id='partner-gh-direct-camera'
+                        className='hidden'
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files.length > 0) {
+                            setCameraTarget('gh');
+                            handleProcessCameraPhoto(e.target.files[0]);
+                            e.target.value = '';
+                          }
+                        }}
+                      />
+                      <label
+                        htmlFor='partner-gh-direct-camera'
+                        className='text-indigo-600 hover:text-indigo-800 font-semibold cursor-pointer underline text-[11px]'
+                      >
+                        Launch Native Device Camera App
+                      </label>
+                    </div>
+
+                    {/* Progress / Status Notice */}
+                    {isProcessingImages && (
+                      <div className='p-2 bg-indigo-100/80 text-indigo-900 rounded-xl text-xs flex items-center justify-center gap-2 font-medium animate-pulse'>
+                        <span className='w-3.5 h-3.5 border-2 border-indigo-700 border-t-transparent rounded-full animate-spin' />
+                        <span>Optimizing and processing photos...</span>
+                      </div>
+                    )}
+                    {imageNotice && !isProcessingImages && (
+                      <div className='p-2 bg-emerald-100 text-emerald-800 rounded-xl text-xs text-center font-medium'>
+                        {imageNotice}
+                      </div>
+                    )}
+
+                    {/* Direct URL addition */}
+                    <div className='pt-1'>
+                      <span className='text-[10px] font-bold text-neutral-400 uppercase tracking-wider block mb-1'>
+                        Or Add by Web URL
+                      </span>
+                      <div className='flex gap-2'>
+                        <input
+                          type='url'
+                          placeholder='Paste direct image URL (https://... or /images/...)'
+                          value={ghForm.customImageUrl}
+                          onChange={(e) => setGhForm({ ...ghForm, customImageUrl: e.target.value })}
+                          className='flex-1 p-2.5 bg-white border border-neutral-200 rounded-xl text-xs focus:outline-hidden focus:border-black'
+                        />
+                        <button
+                          type='button'
+                          onClick={() => {
+                            if (ghForm.customImageUrl.trim()) {
                               setGhForm({
                                 ...ghForm,
-                                imageUrls: ghForm.imageUrls.filter((_, idx) => idx !== i),
-                              })
+                                imageUrls: [...ghForm.imageUrls, ghForm.customImageUrl.trim()],
+                                customImageUrl: '',
+                              });
                             }
-                            className='absolute inset-0 bg-black/60 text-white opacity-0 group-hover:opacity-100 flex items-center justify-center transition text-xs font-bold'
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      ))}
+                          }}
+                          className='px-4 py-2 bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer'
+                        >
+                          Add Photo
+                        </button>
+                      </div>
                     </div>
+
+                    {/* Thumbnail Gallery with Cover Badge and Delete Button */}
+                    {ghForm.imageUrls.length > 0 ? (
+                      <div className='grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-2.5 max-h-48 overflow-y-auto p-2.5 bg-white rounded-xl border border-neutral-200 shadow-2xs'>
+                        {ghForm.imageUrls.map((url, i) => (
+                          <div key={i} className='relative h-20 rounded-xl overflow-hidden border border-neutral-200 group bg-neutral-100'>
+                            <img
+                              src={url}
+                              alt={`Property photo ${i + 1}`}
+                              className='w-full h-full object-cover'
+                              onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.src = '/images/airbnb_apartment_living.jpg';
+                              }}
+                            />
+                            {i === 0 && (
+                              <span className='absolute bottom-1 left-1 bg-black/85 text-white text-[8px] font-bold px-1.5 py-0.5 rounded'>
+                                Cover
+                              </span>
+                            )}
+                            <button
+                              type='button'
+                              onClick={() =>
+                                setGhForm({
+                                  ...ghForm,
+                                  imageUrls: ghForm.imageUrls.filter((_, idx) => idx !== i),
+                                })
+                              }
+                              className='absolute top-1 right-1 bg-rose-600 hover:bg-rose-700 text-white p-1 rounded-full text-[10px] opacity-90 group-hover:opacity-100 transition-opacity cursor-pointer shadow-xs'
+                              title='Remove photo'
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className='p-4 rounded-xl border border-dashed border-neutral-300 bg-white text-center text-xs text-neutral-500'>
+                        <p className='font-bold text-neutral-800'>No photos added yet</p>
+                        <p className='text-[11px] text-neutral-400 mt-0.5'>
+                          Use the camera option above or select photos from your device to showcase this property.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -1691,6 +1940,33 @@ export default function Partner() {
                   {/* Transmission and Seats */}
                   <div>
                     <label className='block text-xs font-bold text-neutral-800 mb-1.5'>
+                      Base Neighborhood in Makindye *
+                    </label>
+                    <select
+                      value={carForm.city}
+                      onChange={(e) => setCarForm({ ...carForm, city: e.target.value })}
+                      className='w-full p-3 bg-neutral-50 border border-neutral-200 rounded-xl text-sm focus:outline-hidden focus:border-black focus:bg-white'
+                    >
+                      <option value='Makindye'>Makindye (Makindye Hill)</option>
+                      <option value='Muyenga'>Muyenga (Tank Hill)</option>
+                      <option value='Munyonyo'>Munyonyo (Waterfront & Marina)</option>
+                      <option value='Buziga'>Buziga (Buziga Hill)</option>
+                      <option value='Ggaba'>Ggaba (Lake Victoria Shore)</option>
+                      <option value='Kansanga'>Kansanga (Ggaba Road Corridor)</option>
+                      <option value='Kabalagala'>Kabalagala (Dining & Entertainment)</option>
+                      <option value='Nsambya'>Nsambya (Historic Enclave)</option>
+                      <option value='Kibuli'>Kibuli (Scenic Hill)</option>
+                      <option value='Luwafu'>Luwafu</option>
+                      <option value='Katwe'>Katwe</option>
+                      <option value='Kisugu'>Kisugu</option>
+                      <option value='Salaama'>Salaama</option>
+                      <option value='Bunga'>Bunga</option>
+                      <option value='Other Makindye'>Other (Makindye Division, Kampala)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className='block text-xs font-bold text-neutral-800 mb-1.5'>
                       Transmission
                     </label>
                     <select
@@ -1777,57 +2053,206 @@ export default function Partner() {
                   </div>
 
                   {/* Photos */}
-                  <div className='md:col-span-2 space-y-2'>
-                    <label className='block text-xs font-bold text-neutral-800 mb-1 flex items-center justify-between'>
-                      <span>Vehicle Photos</span>
-                      <span className='text-neutral-400 font-normal text-[11px]'>
-                        Add image URL or use curated templates
+                  <div className='md:col-span-2 space-y-3 bg-neutral-50 p-4 sm:p-5 rounded-2xl border border-neutral-200'>
+                    <div>
+                      <label className='block text-xs font-bold text-neutral-900'>
+                        Vehicle Photos ({carForm.imageUrls.length})
+                      </label>
+                      <span className='text-neutral-500 text-[11px] block'>
+                        {carForm.imageUrls.length > 0
+                          ? 'The first photo serves as the main search cover'
+                          : 'Add vehicle photos using device camera or file upload'}
                       </span>
-                    </label>
-                    <div className='flex gap-2'>
-                      <input
-                        type='url'
-                        placeholder='Paste direct image URL (https://...)'
-                        value={carForm.customImageUrl}
-                        onChange={(e) => setCarForm({ ...carForm, customImageUrl: e.target.value })}
-                        className='flex-1 p-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-xs'
-                      />
+                    </div>
+
+                    {/* Camera & Local File Upload Area */}
+                    <div className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
+                      {/* Option 1: Live Device Camera Capture */}
                       <button
                         type='button'
                         onClick={() => {
-                          if (carForm.customImageUrl.trim()) {
-                            setCarForm({
-                              ...carForm,
-                              imageUrls: [...carForm.imageUrls, carForm.customImageUrl.trim()],
-                              customImageUrl: '',
-                            });
-                          }
+                          setCameraTarget('car');
+                          setCameraModalOpen(true);
                         }}
-                        className='px-4 py-2 bg-black hover:bg-neutral-800 text-white rounded-xl text-xs font-bold transition shadow-xs'
+                        id='partner-car-open-camera-btn'
+                        className='flex flex-col items-center justify-center p-4 border-2 border-dashed border-indigo-300 hover:border-indigo-500 bg-indigo-50/50 hover:bg-indigo-50/90 rounded-2xl transition cursor-pointer group text-center'
                       >
-                        Add Photo
+                        <div className='w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center mb-1 group-hover:scale-110 transition'>
+                          <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                            <path
+                              strokeLinecap='round'
+                              strokeLinejoin='round'
+                              strokeWidth='2'
+                              d='M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z'
+                            />
+                            <circle cx='12' cy='13' r='3' strokeWidth='2' />
+                          </svg>
+                        </div>
+                        <span className='text-xs font-bold text-indigo-950 group-hover:text-indigo-900 flex items-center gap-1.5'>
+                          Take Photo with Camera
+                          <span className='text-[10px] bg-indigo-200/80 text-indigo-800 px-1.5 py-0.2 rounded-full font-medium'>
+                            Live
+                          </span>
+                        </span>
+                        <span className='text-[11px] text-neutral-500 mt-0.5'>
+                          Snap photos with laptop webcam or mobile camera
+                        </span>
                       </button>
+
+                      {/* Option 2: Choose Images from Device */}
+                      <div className='relative'>
+                        <input
+                          type='file'
+                          id='partner-car-local-photos'
+                          accept='image/*'
+                          multiple
+                          onChange={(e) => {
+                            handleProcessLocalFiles(e.target.files, 'car');
+                            e.target.value = '';
+                          }}
+                          className='hidden'
+                        />
+                        <label
+                          htmlFor='partner-car-local-photos'
+                          onDragOver={(e) => e.preventDefault()}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            if (e.dataTransfer?.files) {
+                              handleProcessLocalFiles(e.dataTransfer.files, 'car');
+                            }
+                          }}
+                          className='flex flex-col items-center justify-center p-4 border-2 border-dashed border-emerald-300 hover:border-emerald-500 bg-emerald-50/40 hover:bg-emerald-50/80 rounded-2xl transition cursor-pointer group text-center h-full'
+                        >
+                          <div className='w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mb-1 group-hover:scale-110 transition'>
+                            <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                              <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z' />
+                            </svg>
+                          </div>
+                          <span className='text-xs font-bold text-emerald-950 group-hover:text-emerald-900'>
+                            Choose Images from Device
+                          </span>
+                          <span className='text-[11px] text-neutral-500 mt-0.5'>
+                            Browse local files or drag &amp; drop photos (.jpg, .png)
+                          </span>
+                        </label>
+                      </div>
                     </div>
 
-                    <div className='flex flex-wrap gap-2 pt-2'>
-                      {carForm.imageUrls.map((url, i) => (
-                        <div key={i} className='relative w-20 h-20 rounded-xl overflow-hidden border border-neutral-200 group'>
-                          <img src={url} alt='' className='w-full h-full object-cover' />
-                          <button
-                            type='button'
-                            onClick={() =>
+                    {/* Direct Mobile Quick Camera Trigger */}
+                    <div className='flex items-center justify-between px-3.5 py-2 bg-neutral-100 rounded-xl text-xs text-neutral-600 border border-neutral-200'>
+                      <span className='text-[11px] text-neutral-600 flex items-center gap-1.5'>
+                        <FaCamera className='text-neutral-500' />
+                        Mobile camera shortcut:
+                      </span>
+                      <input
+                        type='file'
+                        accept='image/*'
+                        capture='environment'
+                        id='partner-car-direct-camera'
+                        className='hidden'
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files.length > 0) {
+                            setCameraTarget('car');
+                            handleProcessCameraPhoto(e.target.files[0]);
+                            e.target.value = '';
+                          }
+                        }}
+                      />
+                      <label
+                        htmlFor='partner-car-direct-camera'
+                        className='text-indigo-600 hover:text-indigo-800 font-semibold cursor-pointer underline text-[11px]'
+                      >
+                        Launch Native Device Camera App
+                      </label>
+                    </div>
+
+                    {/* Progress / Status Notice */}
+                    {isProcessingImages && (
+                      <div className='p-2 bg-indigo-100/80 text-indigo-900 rounded-xl text-xs flex items-center justify-center gap-2 font-medium animate-pulse'>
+                        <span className='w-3.5 h-3.5 border-2 border-indigo-700 border-t-transparent rounded-full animate-spin' />
+                        <span>Optimizing and processing photos...</span>
+                      </div>
+                    )}
+                    {imageNotice && !isProcessingImages && (
+                      <div className='p-2 bg-emerald-100 text-emerald-800 rounded-xl text-xs text-center font-medium'>
+                        {imageNotice}
+                      </div>
+                    )}
+
+                    {/* Direct URL addition */}
+                    <div className='pt-1'>
+                      <span className='text-[10px] font-bold text-neutral-400 uppercase tracking-wider block mb-1'>
+                        Or Add by Web URL
+                      </span>
+                      <div className='flex gap-2'>
+                        <input
+                          type='url'
+                          placeholder='Paste direct image URL (https://... or /images/...)'
+                          value={carForm.customImageUrl}
+                          onChange={(e) => setCarForm({ ...carForm, customImageUrl: e.target.value })}
+                          className='flex-1 p-2.5 bg-white border border-neutral-200 rounded-xl text-xs focus:outline-hidden focus:border-black'
+                        />
+                        <button
+                          type='button'
+                          onClick={() => {
+                            if (carForm.customImageUrl.trim()) {
                               setCarForm({
                                 ...carForm,
-                                imageUrls: carForm.imageUrls.filter((_, idx) => idx !== i),
-                              })
+                                imageUrls: [...carForm.imageUrls, carForm.customImageUrl.trim()],
+                                customImageUrl: '',
+                              });
                             }
-                            className='absolute inset-0 bg-black/60 text-white opacity-0 group-hover:opacity-100 flex items-center justify-center transition text-xs font-bold'
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      ))}
+                          }}
+                          className='px-4 py-2 bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer'
+                        >
+                          Add Photo
+                        </button>
+                      </div>
                     </div>
+
+                    {/* Thumbnail Gallery with Cover Badge and Delete Button */}
+                    {carForm.imageUrls.length > 0 ? (
+                      <div className='grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-2.5 max-h-48 overflow-y-auto p-2.5 bg-white rounded-xl border border-neutral-200 shadow-2xs'>
+                        {carForm.imageUrls.map((url, i) => (
+                          <div key={i} className='relative h-20 rounded-xl overflow-hidden border border-neutral-200 group bg-neutral-100'>
+                            <img
+                              src={url}
+                              alt={`Vehicle photo ${i + 1}`}
+                              className='w-full h-full object-cover'
+                              onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.src = '/images/city_regular_sedan.jpg';
+                              }}
+                            />
+                            {i === 0 && (
+                              <span className='absolute bottom-1 left-1 bg-black/85 text-white text-[8px] font-bold px-1.5 py-0.5 rounded'>
+                                Cover
+                              </span>
+                            )}
+                            <button
+                              type='button'
+                              onClick={() =>
+                                setCarForm({
+                                  ...carForm,
+                                  imageUrls: carForm.imageUrls.filter((_, idx) => idx !== i),
+                                })
+                              }
+                              className='absolute top-1 right-1 bg-rose-600 hover:bg-rose-700 text-white p-1 rounded-full text-[10px] opacity-90 group-hover:opacity-100 transition-opacity cursor-pointer shadow-xs'
+                              title='Remove photo'
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className='p-4 rounded-xl border border-dashed border-neutral-300 bg-white text-center text-xs text-neutral-500'>
+                        <p className='font-bold text-neutral-800'>No photos added yet</p>
+                        <p className='text-[11px] text-neutral-400 mt-0.5'>
+                          Use the camera option above or select photos from your device to showcase this vehicle.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -1900,7 +2325,7 @@ export default function Partner() {
                             <div className='flex items-center gap-2 text-xs text-neutral-500 mt-0.5'>
                               <span>${item.price}/{item.priceUnit || (isGH ? 'night' : 'day')}</span>
                               <span>•</span>
-                              <span>{item.city || 'Asmara'}</span>
+                              <span>{item.city || 'Makindye, Kampala'}</span>
                               {item.availabilityNotes && (
                                 <>
                                   <span>•</span>
@@ -1962,6 +2387,15 @@ export default function Partner() {
           )}
         </section>
       )}
+
+      {/* Interactive Device Camera Capture Modal */}
+      <CameraCaptureModal
+        isOpen={cameraModalOpen}
+        onClose={() => setCameraModalOpen(false)}
+        onCapture={handleProcessCameraPhoto}
+        maxAllowed={8}
+        currentCount={cameraTarget === 'gh' ? ghForm.imageUrls.length : carForm.imageUrls.length}
+      />
     </div>
   );
 }

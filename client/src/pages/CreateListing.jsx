@@ -1,11 +1,4 @@
-import { useState } from 'react';
-import {
-  getDownloadURL,
-  getStorage,
-  ref,
-  uploadBytesResumable,
-} from 'firebase/storage';
-import { app } from '../firebase';
+import React, { useState } from 'react';
 import { useSelector } from 'react-redux';
 import { Link, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
@@ -17,283 +10,248 @@ import CameraCaptureModal from '../components/CameraCaptureModal';
 export default function CreateListing() {
   const { t } = useLanguage();
   const reduxUser = useSelector((state) => state.user.currentUser);
-  const { currentUser: authUser, isEmailVerified } = useAuth();
+  const { currentUser: authUser, isEmailVerified, isAdmin } = useAuth();
   const currentUser = authUser || reduxUser;
   const navigate = useNavigate();
 
+  const [category, setCategory] = useState('guesthouse'); // 'guesthouse' | 'car_service'
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [submittedListing, setSubmittedListing] = useState(null);
+
+  // Form state mirroring admin property structure
   const [formData, setFormData] = useState({
-    imageUrls: [],
     title: '',
-    name: '',
     description: '',
     location: '',
-    address: '',
-    category: 'guesthouse', // 'guesthouse' or 'car_service'
-    price: 50,
-    regularPrice: 50,
-    discountPrice: 0,
-    discountedPrice: 0,
+    regularPrice: '120',
+    discountPrice: '',
     offer: false,
-    // Guesthouse fields
+    isApproved: Boolean(isAdmin),
+    active: true,
+    // Guesthouse
     bedrooms: 1,
     bathrooms: 1,
-    furnished: false,
-    parking: false,
-    amenities: '',
     maxGuests: 2,
-    // Car Service fields
-    make: '',
-    model: '',
-    year: new Date().getFullYear(),
-    transmission: 'automatic',
+    furnished: true,
+    parking: true,
+    amenities: ['WiFi', 'Kitchen', 'Air Conditioning'],
+    // Car Service
+    make: 'Toyota',
+    model: 'Camry Sedan',
+    year: 2023,
     seats: 4,
+    transmission: 'automatic',
     driverIncluded: true,
     driverName: '',
     driverContact: '',
+    luggageCapacity: 2,
+    imageUrls: [],
   });
 
-  const [imageUploadError, setImageUploadError] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [submittedListing, setSubmittedListing] = useState(null);
+  const [newImageUrl, setNewImageUrl] = useState('');
+  const [isProcessingLocalImages, setIsProcessingLocalImages] = useState(false);
+  const [localImageNotice, setLocalImageNotice] = useState('');
   const [isCameraOpen, setIsCameraOpen] = useState(false);
-  const [cameraNotice, setCameraNotice] = useState('');
 
-  const handleCategoryToggle = (categoryKey) => {
+  const handleCategoryChange = (newCat) => {
+    setCategory(newCat);
+    if (newCat === 'car_service') {
+      setFormData((prev) => ({
+        ...prev,
+        regularPrice: prev.regularPrice === '120' ? '75' : prev.regularPrice,
+      }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        regularPrice: prev.regularPrice === '75' ? '120' : prev.regularPrice,
+      }));
+    }
+  };
+
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
     setFormData((prev) => ({
       ...prev,
-      category: categoryKey,
+      [name]: type === 'checkbox' ? checked : value,
     }));
+  };
+
+  const handleAmenityToggle = (amenity) => {
+    setFormData((prev) => {
+      const exists = prev.amenities.includes(amenity);
+      return {
+        ...prev,
+        amenities: exists
+          ? prev.amenities.filter((a) => a !== amenity)
+          : [...prev.amenities, amenity],
+      };
+    });
+  };
+
+  const handleAddImageUrl = (e) => {
+    e.preventDefault();
+    if (!newImageUrl.trim()) return;
+    setFormData((prev) => ({
+      ...prev,
+      imageUrls: [...prev.imageUrls, newImageUrl.trim()],
+    }));
+    setNewImageUrl('');
+  };
+
+  const handleRemoveImageUrl = (idx) => {
+    setFormData((prev) => ({
+      ...prev,
+      imageUrls: prev.imageUrls.filter((_, i) => i !== idx),
+    }));
+  };
+
+
+
+  const handleProcessLocalFiles = async (fileList) => {
+    if (!fileList || fileList.length === 0) return;
+    const files = Array.from(fileList).filter((f) => f.type.startsWith('image/'));
+    if (files.length === 0) {
+      setError('Please select valid image files (.jpg, .png, .webp).');
+      return;
+    }
+
+    try {
+      setIsProcessingLocalImages(true);
+      setLocalImageNotice(`Optimizing ${files.length} photo${files.length > 1 ? 's' : ''} from local device...`);
+      setError(null);
+
+      const compressedUrls = [];
+      for (const file of files) {
+        const url = await compressImage(file, { maxWidth: 1600, maxHeight: 1600, quality: 0.82 });
+        if (url) compressedUrls.push(url);
+      }
+
+      if (compressedUrls.length > 0) {
+        setFormData((prev) => ({
+          ...prev,
+          imageUrls: [...prev.imageUrls, ...compressedUrls],
+        }));
+        setLocalImageNotice(`Added ${compressedUrls.length} photo${compressedUrls.length > 1 ? 's' : ''} successfully!`);
+        setTimeout(() => setLocalImageNotice(''), 3500);
+      }
+    } catch (err) {
+      console.error('Error processing local images in listing portal:', err);
+      setError('Failed to process image file from local device.');
+    } finally {
+      setIsProcessingLocalImages(false);
+    }
   };
 
   const handleProcessCameraPhoto = async (file) => {
     if (!file) return;
-
-    if (formData.imageUrls.length >= 6) {
-      setImageUploadError('You can only have up to 6 images per listing');
-      return;
-    }
-
-    setUploading(true);
-    setImageUploadError(false);
-    setCameraNotice('Uploading photo taken with camera...');
-
     try {
-      const url = await storeImage(file);
+      setIsProcessingLocalImages(true);
+      setLocalImageNotice('Optimizing photo captured with device camera...');
+      const url = await compressImage(file, { maxWidth: 1600, maxHeight: 1600, quality: 0.82 });
       if (url) {
         setFormData((prev) => ({
           ...prev,
-          imageUrls: Array.from(new Set([...prev.imageUrls, url])).slice(0, 6),
+          imageUrls: [...prev.imageUrls, url],
         }));
-        setCameraNotice('Photo captured and added to your listing!');
-        setTimeout(() => setCameraNotice(''), 3500);
+        setLocalImageNotice('✓ Photo captured with camera added to listing!');
+        setTimeout(() => setLocalImageNotice(''), 3500);
       }
     } catch (err) {
-      console.error('Camera photo upload error:', err);
-      setImageUploadError('Could not process photo captured with camera. Please try again.');
+      console.error('Camera photo error in listing portal:', err);
+      setError('Failed to process photo captured with camera.');
     } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleProcessLocalFiles = async (fileList) => {
-    if (!fileList || fileList.length === 0) return;
-    const incomingFiles = Array.from(fileList).filter((f) => f.type.startsWith('image/'));
-    if (incomingFiles.length === 0) {
-      setImageUploadError('Please select valid image files (.jpg, .png, .webp)');
-      return;
-    }
-
-    if (incomingFiles.length + formData.imageUrls.length > 6) {
-      setImageUploadError('You can only have up to 6 images per listing');
-      return;
-    }
-
-    setUploading(true);
-    setImageUploadError(false);
-
-    try {
-      const promises = incomingFiles.map((file) => storeImage(file));
-      const urls = await Promise.all(promises);
-      const validUrls = urls.filter(Boolean);
-
-      setFormData((prev) => ({
-        ...prev,
-        imageUrls: Array.from(new Set([...prev.imageUrls, ...validUrls])).slice(0, 6),
-      }));
-    } catch (err) {
-      console.error('Local image upload error:', err);
-      setImageUploadError('Could not process images from local system. Please try again.');
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const storeImage = async (file) => {
-    // Process and compress image so any size image can be smoothly uploaded
-    const optimizedDataUrl = await compressImage(file, {
-      maxWidth: 1920,
-      maxHeight: 1920,
-      quality: 0.85,
-    });
-
-    return new Promise((resolve) => {
-      try {
-        const storage = getStorage(app);
-        const userId = currentUser?.uid || currentUser?._id || 'user';
-        const sanitizedName = (file.name || 'photo').replace(/[^a-zA-Z0-9.-]/g, '_');
-        const fileName = `${Date.now()}_${sanitizedName}`;
-        const storageRef = ref(storage, `listings/${userId}/${fileName}`);
-        const uploadTask = uploadBytesResumable(storageRef, file);
-        uploadTask.on(
-          'state_changed',
-          (snapshot) => {
-            const progress =
-              (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-            console.log(`Upload is ${progress}% done`);
-          },
-          (error) => {
-            console.warn(
-              'Firebase storage upload fallback to optimized image:',
-              error
-            );
-            resolve(optimizedDataUrl);
-          },
-          () => {
-            getDownloadURL(uploadTask.snapshot.ref)
-              .then((downloadURL) => resolve(downloadURL))
-              .catch(() => {
-                resolve(optimizedDataUrl);
-              });
-          }
-        );
-      } catch (err) {
-        console.warn(
-          'Firebase storage initialization fallback to optimized image:',
-          err
-        );
-        resolve(optimizedDataUrl);
-      }
-    });
-  };
-
-  const handleRemoveImage = (index) => {
-    setFormData({
-      ...formData,
-      imageUrls: formData.imageUrls.filter((_, i) => i !== index),
-    });
-  };
-
-  const handleChange = (e) => {
-    const { id, value, type, checked } = e.target;
-
-    if (type === 'checkbox') {
-      setFormData((prev) => ({
-        ...prev,
-        [id]: checked,
-      }));
-      return;
-    }
-
-    if (
-      type === 'number' ||
-      type === 'text' ||
-      type === 'textarea' ||
-      e.target.tagName === 'SELECT'
-    ) {
-      const updates = { [id]: value };
-
-      if (id === 'title' || id === 'name') {
-        updates.title = value;
-        updates.name = value;
-      } else if (id === 'location' || id === 'address') {
-        updates.location = value;
-        updates.address = value;
-      } else if (id === 'price' || id === 'regularPrice') {
-        updates.price = value;
-        updates.regularPrice = value;
-      }
-
-      setFormData((prev) => ({
-        ...prev,
-        ...updates,
-      }));
+      setIsProcessingLocalImages(false);
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError(null);
 
     if (!currentUser) {
-      return setError('You must be signed in to create a listing.');
+      setError('You must be signed in to create a listing.');
+      return;
     }
 
-    if (!isEmailVerified) {
-      return setError('Email verification required: You must verify your email address before publishing listings.');
+    if (!isEmailVerified && !isAdmin) {
+      setError('Email verification required: You must verify your email address before publishing listings.');
+      return;
+    }
+
+    if (!formData.title.trim()) {
+      setError('Please provide a listing title.');
+      return;
+    }
+    if (!formData.location.trim()) {
+      setError('Please provide a location/address.');
+      return;
+    }
+    if (!formData.regularPrice || Number(formData.regularPrice) <= 0) {
+      setError('Please provide a valid regular price.');
+      return;
+    }
+    if (formData.imageUrls.length === 0) {
+      setError('Please add at least one image URL for the listing.');
+      return;
     }
 
     try {
-      if (formData.imageUrls.length < 1) {
-        return setError('You must upload at least one image');
-      }
-
-      const listingPrice = +formData.price || +formData.regularPrice;
-      if (!listingPrice || listingPrice <= 0) {
-        return setError('Price must be greater than 0');
-      }
-
       setLoading(true);
-      setError(false);
 
-      const resolvedTitle = formData.title || formData.name;
-      const resolvedLocation = formData.location || formData.address;
+      const listingStatus = isAdmin
+        ? (formData.isApproved ? 'approved' : 'pending')
+        : 'pending';
 
       const payload = {
-        type: formData.category === 'guesthouse' ? 'guesthouse' : 'car',
-        title: resolvedTitle,
-        description: formData.description,
-        price: listingPrice,
-        priceUnit: formData.priceUnit || (formData.category === 'guesthouse' ? 'night' : 'day'),
-        currency: formData.currency || 'USD',
-        city: formData.city || resolvedLocation,
-        area: formData.area || '',
-        address: formData.address || resolvedLocation,
-        contactPhone: formData.contactPhone || '',
+        category,
+        type: category === 'car_service' ? 'car' : 'guesthouse',
+        propertyType: category === 'car_service' ? 'sale' : 'rent',
+        title: formData.title.trim(),
+        name: formData.title.trim(),
+        description: formData.description.trim(),
+        location: formData.location.trim(),
+        address: formData.location.trim(),
+        city: formData.location.trim().split(',')[0].trim() || 'Makindye',
+        regularPrice: Number(formData.regularPrice),
+        price: Number(formData.regularPrice),
+        discountPrice: formData.discountPrice ? Number(formData.discountPrice) : 0,
+        discountedPrice: formData.discountPrice ? Number(formData.discountPrice) : 0,
+        offer: Boolean(formData.offer),
+        priceUnit: category === 'car_service' ? 'day' : 'night',
+        currency: 'USD',
+        status: listingStatus,
+        isApproved: listingStatus === 'approved',
+        active: Boolean(formData.active),
+        isActive: Boolean(formData.active),
         images: formData.imageUrls,
+        imageUrls: formData.imageUrls,
+        // Guesthouse
+        bedrooms: Number(formData.bedrooms || 1),
+        bathrooms: Number(formData.bathrooms || 1),
+        maxGuests: Number(formData.maxGuests || 2),
+        furnished: Boolean(formData.furnished),
+        parking: Boolean(formData.parking),
+        amenities: formData.amenities,
+        // Car
+        make: formData.make || '',
+        model: formData.model || '',
+        year: Number(formData.year || 2024),
+        seats: Number(formData.seats || 4),
+        transmission: formData.transmission || 'automatic',
+        driverIncluded: Boolean(formData.driverIncluded),
+        driverName: formData.driverName || '',
+        driverContact: formData.driverContact || '',
+        luggageCapacity: Number(formData.luggageCapacity || 2),
       };
-
-      if (formData.category === 'guesthouse') {
-        payload.bedrooms = +formData.bedrooms || 1;
-        payload.bathrooms = +formData.bathrooms || 1;
-        payload.maxGuests = +formData.maxGuests || 2;
-        payload.amenities = Array.isArray(formData.amenities)
-          ? formData.amenities
-          : typeof formData.amenities === 'string' && formData.amenities.trim()
-          ? formData.amenities.split(',').map((item) => item.trim()).filter(Boolean)
-          : ['WiFi', 'Air Conditioning'];
-        payload.checkIn = formData.checkIn || '14:00';
-        payload.checkOut = formData.checkOut || '11:00';
-        payload.houseRules = formData.houseRules || 'No smoking, quiet hours after 10 PM';
-      } else {
-        payload.make = formData.make || '';
-        payload.model = formData.model || '';
-        payload.year = +formData.year || new Date().getFullYear();
-        payload.transmission = formData.transmission || 'automatic';
-        payload.fuel = formData.fuel || 'Petrol';
-        payload.seats = +formData.seats || 4;
-        payload.mileageLimit = formData.mileageLimit || '200 km / day';
-        payload.deposit = +formData.deposit || 0;
-        payload.minLeaseTerm = formData.minLeaseTerm || '1 day';
-        payload.driverIncluded = Boolean(formData.driverIncluded);
-      }
 
       const created = await createListing(payload, currentUser);
       setLoading(false);
       setSubmittedListing(created);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
-      setError(err.message || 'An error occurred while saving the listing');
+      console.error('Create listing error:', err);
+      setError(err.message || 'Failed to create listing. Please try again.');
       setLoading(false);
     }
   };
@@ -301,57 +259,59 @@ export default function CreateListing() {
   const handleResetForm = () => {
     setSubmittedListing(null);
     setFormData({
-      imageUrls: [],
       title: '',
-      name: '',
       description: '',
       location: '',
-      address: '',
-      category: 'guesthouse',
-      price: 50,
-      regularPrice: 50,
-      discountPrice: 0,
-      discountedPrice: 0,
+      regularPrice: '120',
+      discountPrice: '',
       offer: false,
+      isApproved: Boolean(isAdmin),
+      active: true,
       bedrooms: 1,
       bathrooms: 1,
-      furnished: false,
-      parking: false,
-      amenities: '',
       maxGuests: 2,
-      make: '',
-      model: '',
-      year: new Date().getFullYear(),
-      transmission: 'automatic',
+      furnished: true,
+      parking: true,
+      amenities: ['WiFi', 'Kitchen', 'Air Conditioning'],
+      make: 'Toyota',
+      model: 'Camry Sedan',
+      year: 2023,
       seats: 4,
+      transmission: 'automatic',
       driverIncluded: true,
       driverName: '',
       driverContact: '',
+      luggageCapacity: 2,
+      imageUrls: [
+        '/images/airbnb_apartment_living.jpg',
+        '/images/airbnb_apartment_bed.jpg',
+      ],
     });
   };
 
   return (
-    <main className='p-4 max-w-4xl mx-auto'>
-      <h1 className='text-3xl font-bold text-center my-6 text-slate-800'>
-        {t('create.title') || 'Create a New Listing'}
-      </h1>
-
-      {/* Partner Portal Shortcut Banner */}
-      <div className='mb-6 p-4 bg-black text-white rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 shadow-md'>
-        <div>
-          <p className='font-bold text-sm text-white'>New: Partner with Us Host Portal</p>
-          <p className='text-xs text-neutral-300'>Manage live calendar availability, instant WhatsApp sharing, and register properties or vehicles.</p>
-        </div>
+    <main className='py-8 px-4 sm:px-6 max-w-3xl mx-auto'>
+      {/* Top Banner Navigation */}
+      <div className='flex items-center justify-between mb-4'>
+        <Link
+          to='/profile'
+          className='inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 transition'
+        >
+          <svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+            <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M15 19l-7-7 7-7' />
+          </svg>
+          Back to Profile
+        </Link>
         <Link
           to='/partner'
-          className='px-4 py-2 bg-white text-black hover:bg-neutral-100 rounded-xl text-xs font-bold transition shrink-0'
+          className='inline-flex items-center gap-1.5 text-xs font-bold text-amber-700 hover:text-amber-800 bg-amber-50 hover:bg-amber-100/80 px-2.5 py-1 rounded-lg border border-amber-200 transition'
         >
-          Open Partner Portal →
+          Partner Portal &amp; Calendar Availability →
         </Link>
       </div>
 
-      {/* Email Verification Required Warning Banner */}
-      {!isEmailVerified && (
+      {/* Email Verification Warning Banner */}
+      {!isEmailVerified && !isAdmin && (
         <div className='mb-6 p-4 bg-amber-50 border border-amber-300 rounded-2xl text-amber-900 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs'>
           <div>
             <p className='font-bold text-sm text-amber-950 mb-0.5'>Email Verification Required</p>
@@ -368,26 +328,16 @@ export default function CreateListing() {
         </div>
       )}
 
-      {/* 4. SUCCESS NOTIFICATION: Pending Admin Review */}
+      {/* Success Notification */}
       {submittedListing && (
         <div
           id='success-submission-banner'
           className='mb-8 p-6 bg-emerald-50 border border-emerald-300 rounded-2xl shadow-sm text-slate-800 animate-fadeIn'
         >
           <div className='flex items-start gap-4'>
-            <div className='p-3 bg-emerald-100 text-emerald-700 rounded-full flex-shrink-0 mt-1'>
-              <svg
-                className='w-6 h-6'
-                fill='none'
-                stroke='currentColor'
-                viewBox='0 0 24 24'
-              >
-                <path
-                  strokeLinecap='round'
-                  strokeLinejoin='round'
-                  strokeWidth='2'
-                  d='M5 13l4 4L19 7'
-                />
+            <div className='p-3 bg-emerald-100 text-emerald-700 rounded-full shrink-0 mt-1'>
+              <svg className='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M5 13l4 4L19 7' />
               </svg>
             </div>
             <div className='flex-1'>
@@ -395,8 +345,14 @@ export default function CreateListing() {
                 <h2 className='text-xl font-bold text-emerald-900'>
                   Listing Submitted Successfully!
                 </h2>
-                <span className='px-2.5 py-0.5 text-xs font-semibold rounded-full bg-amber-100 text-amber-800 border border-amber-300'>
-                  Pending Admin Review
+                <span
+                  className={`px-2.5 py-0.5 text-xs font-semibold rounded-full border ${
+                    submittedListing.status === 'approved'
+                      ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                      : 'bg-amber-100 text-amber-800 border-amber-300'
+                  }`}
+                >
+                  {submittedListing.status === 'approved' ? 'Approved & Live' : 'Pending Admin Review'}
                 </span>
               </div>
               <p className='text-slate-700 text-sm md:text-base leading-relaxed mb-4'>
@@ -404,14 +360,12 @@ export default function CreateListing() {
                 <strong className='text-slate-900 font-semibold'>
                   &ldquo;{submittedListing.title || submittedListing.name}&rdquo;
                 </strong>{' '}
-                has been submitted and is currently pending admin review. Our
-                moderation team will review and approve your submission before it
-                appears publicly in search and listings.
+                has been submitted {submittedListing.status === 'approved' ? 'and is now live in search and catalog!' : 'and is currently pending moderation. Our team will verify and approve your submission promptly.'}
               </p>
 
               <div className='flex flex-wrap gap-3 pt-2'>
                 <Link
-                  to={`/listing/${submittedListing._id}`}
+                  to={`/listing/${submittedListing._id || submittedListing.id}`}
                   className='px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium rounded-lg shadow-sm transition'
                 >
                   Preview Listing
@@ -420,12 +374,12 @@ export default function CreateListing() {
                   to='/profile'
                   className='px-5 py-2.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-sm font-medium rounded-lg shadow-sm transition'
                 >
-                  Go to My Profile
+                  Go to My Listings
                 </Link>
                 <button
                   type='button'
                   onClick={handleResetForm}
-                  className='px-5 py-2.5 text-emerald-800 hover:text-emerald-900 hover:bg-emerald-100/50 text-sm font-medium rounded-lg transition'
+                  className='px-5 py-2.5 text-emerald-800 hover:text-emerald-900 hover:bg-emerald-100/50 text-sm font-medium rounded-lg transition cursor-pointer'
                 >
                   + Submit Another Listing
                 </button>
@@ -435,422 +389,427 @@ export default function CreateListing() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className='flex flex-col sm:flex-row gap-6'>
-        <div className='flex flex-col gap-4 flex-1'>
-          {/* 1. Category Toggle Selector at the Top */}
-          <div className='flex flex-col gap-2'>
-            <label className='font-semibold text-slate-800 text-sm tracking-wide uppercase'>
-              Listing Category
-            </label>
-            <div className='grid grid-cols-2 gap-3 p-1.5 bg-slate-100 rounded-xl border border-slate-200'>
-              <button
-                type='button'
-                id='toggle-category-guesthouse'
-                onClick={() => handleCategoryToggle('guesthouse')}
-                className={`flex items-center justify-center gap-2.5 py-3 px-4 rounded-lg font-semibold text-sm transition-all duration-200 cursor-pointer ${
-                  formData.category === 'guesthouse'
-                    ? 'bg-white text-slate-900 shadow-sm border border-slate-200 ring-2 ring-slate-900/10'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
-                }`}
-              >
-                <svg
-                  className='w-5 h-5 text-indigo-600'
-                  fill='none'
-                  stroke='currentColor'
-                  viewBox='0 0 24 24'
-                >
-                  <path
-                    strokeLinecap='round'
-                    strokeLinejoin='round'
-                    strokeWidth='2'
-                    d='M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6'
-                  />
-                </svg>
-                <span>Guest House</span>
-              </button>
-
-              <button
-                type='button'
-                id='toggle-category-car-service'
-                onClick={() => handleCategoryToggle('car_service')}
-                className={`flex items-center justify-center gap-2.5 py-3 px-4 rounded-lg font-semibold text-sm transition-all duration-200 cursor-pointer ${
-                  formData.category === 'car_service' || formData.category === 'car'
-                    ? 'bg-white text-slate-900 shadow-sm border border-slate-200 ring-2 ring-slate-900/10'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
-                }`}
-              >
-                <svg
-                  className='w-5 h-5 text-emerald-600'
-                  fill='none'
-                  stroke='currentColor'
-                  viewBox='0 0 24 24'
-                >
-                  <path
-                    strokeLinecap='round'
-                    strokeLinejoin='round'
-                    strokeWidth='2'
-                    d='M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4'
-                  />
-                </svg>
-                <span>Car & Driver</span>
-              </button>
+      {/* Main Listing Structure Mirroring Admin Adding Properties Exactly */}
+      <div className='bg-white rounded-2xl shadow-xl border border-slate-200 p-6 sm:p-8'>
+        {/* Structure Header */}
+        <div className='flex items-center justify-between border-b border-slate-100 pb-4 mb-5'>
+          <div>
+            <div className='flex items-center gap-2 mb-1'>
+              <span className='px-2 py-0.5 rounded text-[11px] font-bold uppercase bg-slate-900 text-white'>
+                Listing Portal
+              </span>
+              <span className='text-xs text-slate-500 font-medium'>
+                {isAdmin ? 'Admin Direct Publishing' : 'Add property or chauffeured vehicle to platform directory'}
+              </span>
             </div>
-          </div>
-
-          {/* Common General Fields */}
-          <div className='flex flex-col gap-1'>
-            <label htmlFor='title' className='text-xs font-semibold text-slate-600 uppercase'>
-              {formData.category === 'guesthouse'
-                ? 'Guest House Title'
-                : 'Service / Vehicle Title'}
-            </label>
-            <input
-              type='text'
-              placeholder={
-                formData.category === 'guesthouse'
-                  ? 'e.g. Modern Downtown Studio Airbnb'
-                  : 'e.g. Toyota Corolla City Sedan with Driver'
-              }
-              className='border border-slate-300 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-400'
-              id='title'
-              maxLength='70'
-              minLength='5'
-              required
-              onChange={handleChange}
-              value={formData.title}
-            />
-          </div>
-
-          <div className='flex flex-col gap-1'>
-            <label htmlFor='description' className='text-xs font-semibold text-slate-600 uppercase'>
-              Description
-            </label>
-            <textarea
-              placeholder={
-                formData.category === 'guesthouse'
-                  ? 'Describe property layout, features, atmosphere, and neighborhood...'
-                  : 'Describe car features, luggage space, driver background, airport pickups...'
-              }
-              rows='4'
-              className='border border-slate-300 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-400'
-              id='description'
-              required
-              onChange={handleChange}
-              value={formData.description}
-            />
-          </div>
-
-          <div className='flex flex-col gap-1'>
-            <label htmlFor='location' className='text-xs font-semibold text-slate-600 uppercase'>
-              {formData.category === 'guesthouse' ? 'Property Address / City' : 'Base Location / Service Area'}
-            </label>
-            <input
-              type='text'
-              placeholder={
-                formData.category === 'guesthouse'
-                  ? 'e.g. 742 Ocean Ave, Santa Monica, CA'
-                  : 'e.g. Los Angeles International Airport & Greater LA'
-              }
-              className='border border-slate-300 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-400'
-              id='location'
-              required
-              onChange={handleChange}
-              value={formData.location}
-            />
-          </div>
-
-          {/* 2. CONDITIONAL FORM FIELDS: Guest House */}
-          {formData.category === 'guesthouse' && (
-            <div className='flex flex-col gap-4 border-t border-b border-slate-200 py-4 bg-slate-50/50 p-4 rounded-xl'>
-              <h3 className='font-semibold text-sm text-slate-800 uppercase tracking-wide'>
-                Guest House Specifications
-              </h3>
-
-              <div className='grid grid-cols-2 sm:grid-cols-3 gap-4'>
-                <div className='flex flex-col gap-1'>
-                  <label htmlFor='bedrooms' className='text-xs font-medium text-slate-700'>
-                    Bedrooms
-                  </label>
-                  <input
-                    type='number'
-                    id='bedrooms'
-                    min='1'
-                    max='50'
-                    required
-                    className='p-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-slate-400'
-                    onChange={handleChange}
-                    value={formData.bedrooms}
-                  />
-                </div>
-
-                <div className='flex flex-col gap-1'>
-                  <label htmlFor='bathrooms' className='text-xs font-medium text-slate-700'>
-                    Bathrooms
-                  </label>
-                  <input
-                    type='number'
-                    id='bathrooms'
-                    min='1'
-                    max='50'
-                    required
-                    className='p-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-slate-400'
-                    onChange={handleChange}
-                    value={formData.bathrooms}
-                  />
-                </div>
-
-                <div className='flex flex-col gap-1'>
-                  <label htmlFor='maxGuests' className='text-xs font-medium text-slate-700'>
-                    Max Guests
-                  </label>
-                  <input
-                    type='number'
-                    id='maxGuests'
-                    min='1'
-                    max='100'
-                    required
-                    className='p-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-slate-400'
-                    onChange={handleChange}
-                    value={formData.maxGuests}
-                  />
-                </div>
-              </div>
-
-              {/* Furnishing & Parking toggles */}
-              <div className='flex flex-wrap gap-6 pt-2'>
-                <label className='flex items-center gap-2 cursor-pointer'>
-                  <input
-                    type='checkbox'
-                    id='furnished'
-                    className='w-5 h-5 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer'
-                    onChange={handleChange}
-                    checked={formData.furnished}
-                  />
-                  <span className='font-medium text-sm text-slate-800'>Furnished</span>
-                </label>
-
-                <label className='flex items-center gap-2 cursor-pointer'>
-                  <input
-                    type='checkbox'
-                    id='parking'
-                    className='w-5 h-5 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer'
-                    onChange={handleChange}
-                    checked={formData.parking}
-                  />
-                  <span className='font-medium text-sm text-slate-800'>Parking Spot Included</span>
-                </label>
-              </div>
-
-              <div className='flex flex-col gap-1'>
-                <label htmlFor='amenities' className='text-xs font-medium text-slate-700'>
-                  Amenities
-                </label>
-                <input
-                  type='text'
-                  placeholder='e.g. WiFi, Air Conditioning, Kitchenette, Garden Patio, Washer'
-                  className='border border-slate-300 p-3 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-slate-400'
-                  id='amenities'
-                  onChange={handleChange}
-                  value={formData.amenities}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* 2. CONDITIONAL FORM FIELDS: Car Services */}
-          {(formData.category === 'car_service' || formData.category === 'car') && (
-            <div className='flex flex-col gap-4 border-t border-b border-slate-200 py-4 bg-slate-50/50 p-4 rounded-xl'>
-              <h3 className='font-semibold text-sm text-slate-800 uppercase tracking-wide'>
-                Vehicle & Driver Details
-              </h3>
-
-              <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
-                <div className='flex flex-col gap-1'>
-                  <label htmlFor='make' className='text-xs font-medium text-slate-700'>
-                    Car Make
-                  </label>
-                  <input
-                    type='text'
-                    placeholder='e.g. Toyota, Honda, Hyundai, Volkswagen'
-                    className='border border-slate-300 p-3 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-slate-400'
-                    id='make'
-                    required
-                    onChange={handleChange}
-                    value={formData.make}
-                  />
-                </div>
-
-                <div className='flex flex-col gap-1'>
-                  <label htmlFor='model' className='text-xs font-medium text-slate-700'>
-                    Car Model
-                  </label>
-                  <input
-                    type='text'
-                    placeholder='e.g. Corolla, Civic, Camry, Elantra'
-                    className='border border-slate-300 p-3 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-slate-400'
-                    id='model'
-                    required
-                    onChange={handleChange}
-                    value={formData.model}
-                  />
-                </div>
-              </div>
-
-              <div className='grid grid-cols-1 sm:grid-cols-3 gap-4'>
-                <div className='flex flex-col gap-1'>
-                  <label htmlFor='year' className='text-xs font-medium text-slate-700'>
-                    Model Year
-                  </label>
-                  <input
-                    type='number'
-                    id='year'
-                    min='1990'
-                    max={new Date().getFullYear() + 1}
-                    required
-                    className='p-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-slate-400'
-                    onChange={handleChange}
-                    value={formData.year}
-                  />
-                </div>
-
-                <div className='flex flex-col gap-1'>
-                  <label htmlFor='seats' className='text-xs font-medium text-slate-700'>
-                    Seating Capacity
-                  </label>
-                  <input
-                    type='number'
-                    id='seats'
-                    min='1'
-                    max='60'
-                    required
-                    className='p-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-slate-400'
-                    onChange={handleChange}
-                    value={formData.seats}
-                  />
-                </div>
-
-                <div className='flex flex-col gap-1'>
-                  <label htmlFor='transmission' className='text-xs font-medium text-slate-700'>
-                    Transmission
-                  </label>
-                  <select
-                    id='transmission'
-                    className='p-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-slate-400'
-                    onChange={handleChange}
-                    value={formData.transmission}
-                  >
-                    <option value='automatic'>Automatic</option>
-                    <option value='manual'>Manual</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Driver Details */}
-              <div className='mt-2 pt-3 border-t border-slate-200'>
-                <label className='flex items-center gap-2 cursor-pointer mb-3'>
-                  <input
-                    type='checkbox'
-                    id='driverIncluded'
-                    className='w-5 h-5 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer'
-                    onChange={handleChange}
-                    checked={formData.driverIncluded}
-                  />
-                  <span className='font-medium text-sm text-slate-800'>
-                    Professional Driver Included
-                  </span>
-                </label>
-
-                {formData.driverIncluded && (
-                  <div className='grid grid-cols-1 sm:grid-cols-2 gap-4 bg-white p-3 rounded-lg border border-slate-200'>
-                    <div className='flex flex-col gap-1'>
-                      <label htmlFor='driverName' className='text-xs font-medium text-slate-700'>
-                        Driver Full Name
-                      </label>
-                      <input
-                        type='text'
-                        placeholder='e.g. Marcus Vance'
-                        className='border border-slate-300 p-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-400'
-                        id='driverName'
-                        onChange={handleChange}
-                        value={formData.driverName}
-                      />
-                    </div>
-
-                    <div className='flex flex-col gap-1'>
-                      <label htmlFor='driverContact' className='text-xs font-medium text-slate-700'>
-                        Driver Phone / WhatsApp
-                      </label>
-                      <input
-                        type='text'
-                        placeholder='e.g. +1 (555) 019-2834'
-                        className='border border-slate-300 p-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-400'
-                        id='driverContact'
-                        onChange={handleChange}
-                        value={formData.driverContact}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Pricing Section */}
-          <div className='flex flex-wrap gap-6 items-center pt-2'>
-            <div className='flex items-center gap-3'>
-              <input
-                type='number'
-                id='price'
-                min='1'
-                max='10000000'
-                required
-                className='p-3 border border-slate-300 rounded-lg w-32 focus:outline-none focus:ring-2 focus:ring-slate-400'
-                onChange={handleChange}
-                value={formData.price}
-              />
-              <div className='flex flex-col'>
-                <p className='font-medium text-slate-800'>
-                  {formData.category === 'guesthouse' ? 'Price per Night' : 'Daily Rate (with Driver)'}
-                </p>
-                <span className='text-xs text-slate-500'>
-                  {formData.category === 'guesthouse' ? '($ / night)' : '($ / day)'}
-                </span>
-              </div>
-            </div>
+            <h1 className='text-2xl font-bold text-slate-900'>
+              {t('create.title') || 'Add New Listing'}
+            </h1>
           </div>
         </div>
 
-        {/* Media & Submission Section */}
-        <div className='flex flex-col flex-1 gap-4'>
-          <div className='flex flex-col gap-3'>
-            <div className='flex items-center justify-between'>
-              <p className='font-semibold text-slate-800 text-sm'>
-                Listing Images ({formData.imageUrls.length}/6)
-              </p>
-              <span className='font-normal text-slate-500 text-xs'>
-                The first image will be the cover
+        {error && (
+          <div className='mb-5 p-3.5 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl flex items-center gap-2'>
+            <svg className='w-4 h-4 text-rose-500 shrink-0' fill='none' viewBox='0 0 24 24' stroke='currentColor'>
+              <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z' />
+            </svg>
+            <span>{error}</span>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className='space-y-5'>
+          {/* Category Toggle Tabs */}
+          <div>
+            <label className='block text-xs font-bold uppercase tracking-wider text-slate-600 mb-2'>
+              Listing Category
+            </label>
+            <div className='grid grid-cols-2 gap-3'>
+              <button
+                type='button'
+                onClick={() => handleCategoryChange('guesthouse')}
+                className={`py-3 px-4 rounded-xl border text-left flex items-center gap-3 transition-all cursor-pointer ${
+                  category === 'guesthouse'
+                    ? 'border-blue-600 bg-blue-50/60 ring-2 ring-blue-600/20'
+                    : 'border-slate-200 hover:bg-slate-50'
+                }`}
+              >
+                <div
+                  className={`w-9 h-9 rounded-lg flex items-center justify-center font-bold shrink-0 ${
+                    category === 'guesthouse' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'
+                  }`}
+                >
+                  <svg className='w-5 h-5' fill='none' viewBox='0 0 24 24' stroke='currentColor'>
+                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' />
+                  </svg>
+                </div>
+                <div>
+                  <div className='text-sm font-bold text-slate-900'>Guest House / Airbnb</div>
+                  <div className='text-xs text-slate-500'>Furnished apartments &amp; guest suites</div>
+                </div>
+              </button>
+
+              <button
+                type='button'
+                onClick={() => handleCategoryChange('car_service')}
+                className={`py-3 px-4 rounded-xl border text-left flex items-center gap-3 transition-all cursor-pointer ${
+                  category === 'car_service'
+                    ? 'border-amber-600 bg-amber-50/60 ring-2 ring-amber-600/20'
+                    : 'border-slate-200 hover:bg-slate-50'
+                }`}
+              >
+                <div
+                  className={`w-9 h-9 rounded-lg flex items-center justify-center font-bold shrink-0 ${
+                    category === 'car_service' ? 'bg-amber-600 text-white' : 'bg-slate-100 text-slate-600'
+                  }`}
+                >
+                  <svg className='w-5 h-5' fill='none' viewBox='0 0 24 24' stroke='currentColor'>
+                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4' />
+                  </svg>
+                </div>
+                <div>
+                  <div className='text-sm font-bold text-slate-900'>Car Rental with Driver</div>
+                  <div className='text-xs text-slate-500'>Sedans, SUVs with private chauffeur</div>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          {/* Basic Info: Title & Location */}
+          <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
+            <div>
+              <label className='block text-xs font-semibold text-slate-700 mb-1'>
+                Listing Title <span className='text-rose-500'>*</span>
+              </label>
+              <input
+                type='text'
+                name='title'
+                value={formData.title}
+                onChange={handleChange}
+                placeholder={
+                  category === 'guesthouse'
+                    ? 'e.g. Modern Sunset Studio Airbnb with Balcony'
+                    : 'e.g. Toyota Camry Executive City Sedan with Chauffeur'
+                }
+                required
+                className='w-full px-3.5 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-slate-800 focus:bg-white'
+              />
+            </div>
+
+            <div>
+              <label className='block text-xs font-semibold text-slate-700 mb-1'>
+                Makindye Neighborhood / Route <span className='text-rose-500'>*</span>
+              </label>
+              <input
+                type='text'
+                name='location'
+                list='makindye-neighborhoods'
+                value={formData.location}
+                onChange={handleChange}
+                placeholder='e.g. Tank Hill Road, Muyenga, Makindye Division, Kampala'
+                required
+                className='w-full px-3.5 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-slate-800 focus:bg-white'
+              />
+              <datalist id='makindye-neighborhoods'>
+                <option value='Muyenga (Tank Hill), Makindye Division, Kampala' />
+                <option value='Munyonyo Waterfront, Makindye Division, Kampala' />
+                <option value='Buziga Hill, Makindye Division, Kampala' />
+                <option value='Ggaba Shore & Marina, Makindye Division, Kampala' />
+                <option value='Kansanga (Ggaba Road), Makindye Division, Kampala' />
+                <option value='Makindye Hill, Makindye Division, Kampala' />
+                <option value='Kabalagala, Makindye Division, Kampala' />
+                <option value='Nsambya, Makindye Division, Kampala' />
+                <option value='Kibuli, Makindye Division, Kampala' />
+                <option value='Luwafu, Makindye Division, Kampala' />
+                <option value='Katwe, Makindye Division, Kampala' />
+                <option value='Kisugu, Makindye Division, Kampala' />
+                <option value='Wabigalo, Makindye Division, Kampala' />
+                <option value='Salaama, Makindye Division, Kampala' />
+                <option value='Lukuli / Konge, Makindye Division, Kampala' />
+                <option value='Bunga, Makindye Division, Kampala' />
+              </datalist>
+            </div>
+          </div>
+
+          {/* Description */}
+          <div>
+            <label className='block text-xs font-semibold text-slate-700 mb-1'>
+              Detailed Description
+            </label>
+            <textarea
+              name='description'
+              rows={3}
+              value={formData.description}
+              onChange={handleChange}
+              placeholder='Describe key features, comfort, interior perks, self check-in, or route details...'
+              className='w-full px-3.5 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-slate-800 focus:bg-white'
+            />
+          </div>
+
+          {/* Pricing Row */}
+          <div className='grid grid-cols-1 sm:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200'>
+            <div>
+              <label className='block text-xs font-semibold text-slate-700 mb-1'>
+                Regular Rate ($ {category === 'guesthouse' ? '/night' : '/day'}) <span className='text-rose-500'>*</span>
+              </label>
+              <input
+                type='number'
+                name='regularPrice'
+                min='1'
+                value={formData.regularPrice}
+                onChange={handleChange}
+                placeholder='120'
+                required
+                className='w-full px-3 py-2 text-xs sm:text-sm bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-slate-800'
+              />
+            </div>
+
+            <div>
+              <label className='block text-xs font-semibold text-slate-700 mb-1'>
+                Discounted Rate ($) <span className='text-slate-400 font-normal'>(Optional)</span>
+              </label>
+              <input
+                type='number'
+                name='discountPrice'
+                min='0'
+                value={formData.discountPrice}
+                onChange={handleChange}
+                placeholder='95'
+                className='w-full px-3 py-2 text-xs sm:text-sm bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-slate-800'
+              />
+            </div>
+
+            <div className='flex items-center sm:pt-6'>
+              <label className='inline-flex items-center gap-2 cursor-pointer'>
+                <input
+                  type='checkbox'
+                  name='offer'
+                  checked={formData.offer}
+                  onChange={handleChange}
+                  className='w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500'
+                />
+                <span className='text-xs font-semibold text-slate-700'>
+                  Display Special Deal Badge
+                </span>
+              </label>
+            </div>
+          </div>
+
+          {/* Category-Specific Fields */}
+          {category === 'guesthouse' ? (
+            <div className='space-y-4 p-4 bg-blue-50/40 rounded-xl border border-blue-100'>
+              <div className='text-xs font-bold uppercase tracking-wider text-blue-900'>
+                Guest House Specifications
+              </div>
+              <div className='grid grid-cols-3 gap-3'>
+                <div>
+                  <label className='block text-xs font-medium text-slate-700 mb-1'>Bedrooms</label>
+                  <input
+                    type='number'
+                    name='bedrooms'
+                    min='1'
+                    max='20'
+                    value={formData.bedrooms}
+                    onChange={handleChange}
+                    className='w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg'
+                  />
+                </div>
+                <div>
+                  <label className='block text-xs font-medium text-slate-700 mb-1'>Bathrooms</label>
+                  <input
+                    type='number'
+                    name='bathrooms'
+                    min='1'
+                    max='10'
+                    value={formData.bathrooms}
+                    onChange={handleChange}
+                    className='w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg'
+                  />
+                </div>
+                <div>
+                  <label className='block text-xs font-medium text-slate-700 mb-1'>Max Guests</label>
+                  <input
+                    type='number'
+                    name='maxGuests'
+                    min='1'
+                    max='50'
+                    value={formData.maxGuests}
+                    onChange={handleChange}
+                    className='w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg'
+                  />
+                </div>
+              </div>
+
+              {/* Amenities */}
+              <div>
+                <label className='block text-xs font-medium text-slate-700 mb-1.5'>
+                  Key Amenities
+                </label>
+                <div className='flex flex-wrap gap-2'>
+                  {['WiFi', 'Kitchen', 'Air Conditioning', 'Workspace', 'Balcony', 'Pool', 'Smart TV'].map(
+                    (item) => (
+                      <button
+                        type='button'
+                        key={item}
+                        onClick={() => handleAmenityToggle(item)}
+                        className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors cursor-pointer ${
+                          formData.amenities.includes(item)
+                            ? 'bg-blue-600 text-white border-blue-600'
+                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        {formData.amenities.includes(item) ? '✓ ' : '+ '}
+                        {item}
+                      </button>
+                    )
+                  )}
+                </div>
+              </div>
+
+              <div className='flex gap-4 pt-1'>
+                <label className='inline-flex items-center gap-2 cursor-pointer text-xs font-medium text-slate-700'>
+                  <input
+                    type='checkbox'
+                    name='furnished'
+                    checked={formData.furnished}
+                    onChange={handleChange}
+                    className='rounded text-blue-600'
+                  />
+                  Fully Furnished
+                </label>
+                <label className='inline-flex items-center gap-2 cursor-pointer text-xs font-medium text-slate-700'>
+                  <input
+                    type='checkbox'
+                    name='parking'
+                    checked={formData.parking}
+                    onChange={handleChange}
+                    className='rounded text-blue-600'
+                  />
+                  Dedicated Parking Spot
+                </label>
+              </div>
+            </div>
+          ) : (
+            <div className='space-y-4 p-4 bg-amber-50/40 rounded-xl border border-amber-200/70'>
+              <div className='text-xs font-bold uppercase tracking-wider text-amber-900'>
+                Chauffeur &amp; Vehicle Specifications
+              </div>
+              <div className='grid grid-cols-2 sm:grid-cols-4 gap-3'>
+                <div>
+                  <label className='block text-xs font-medium text-slate-700 mb-1'>Make</label>
+                  <input
+                    type='text'
+                    name='make'
+                    value={formData.make}
+                    onChange={handleChange}
+                    placeholder='Toyota, Lexus...'
+                    className='w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg'
+                  />
+                </div>
+                <div>
+                  <label className='block text-xs font-medium text-slate-700 mb-1'>Model</label>
+                  <input
+                    type='text'
+                    name='model'
+                    value={formData.model}
+                    onChange={handleChange}
+                    placeholder='Camry Sedan, Prado SUV...'
+                    className='w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg'
+                  />
+                </div>
+                <div>
+                  <label className='block text-xs font-medium text-slate-700 mb-1'>Year</label>
+                  <input
+                    type='number'
+                    name='year'
+                    min='2015'
+                    max='2026'
+                    value={formData.year}
+                    onChange={handleChange}
+                    className='w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg'
+                  />
+                </div>
+                <div>
+                  <label className='block text-xs font-medium text-slate-700 mb-1'>Passenger Seats</label>
+                  <input
+                    type='number'
+                    name='seats'
+                    min='1'
+                    max='15'
+                    value={formData.seats}
+                    onChange={handleChange}
+                    className='w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg'
+                  />
+                </div>
+              </div>
+
+              <div className='grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1'>
+                <div>
+                  <label className='block text-xs font-medium text-slate-700 mb-1'>
+                    Designated Driver Name
+                  </label>
+                  <input
+                    type='text'
+                    name='driverName'
+                    value={formData.driverName}
+                    onChange={handleChange}
+                    placeholder='e.g. David Chen or Marcus Vance'
+                    className='w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg'
+                  />
+                </div>
+                <div>
+                  <label className='block text-xs font-medium text-slate-700 mb-1'>
+                    Driver Contact Phone
+                  </label>
+                  <input
+                    type='text'
+                    name='driverContact'
+                    value={formData.driverContact}
+                    onChange={handleChange}
+                    placeholder='+1 555-0199'
+                    className='w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg'
+                  />
+                </div>
+              </div>
+
+              <div className='flex gap-4 pt-1'>
+                <label className='inline-flex items-center gap-2 cursor-pointer text-xs font-medium text-slate-700'>
+                  <input
+                    type='checkbox'
+                    name='driverIncluded'
+                    checked={formData.driverIncluded}
+                    onChange={handleChange}
+                    className='rounded text-amber-600'
+                  />
+                  Professional Chauffeur Service Included
+                </label>
+              </div>
+            </div>
+          )}
+
+          {/* Photo Management */}
+          <div className='space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-200'>
+            <div>
+              <label className='text-xs font-bold uppercase tracking-wider text-slate-700 block'>
+                Listing Photos ({formData.imageUrls.length})
+              </label>
+              <span className='text-[11px] text-slate-500'>
+                {formData.imageUrls.length > 0
+                  ? 'The first image serves as the main search cover'
+                  : 'Add listing photos using your local camera, uploading files from your device, or pasting URLs.'}
               </span>
             </div>
 
-            {/* Camera & Local File Action Cards */}
+            {/* Camera & Local File Upload Area */}
             <div className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
               {/* Option 1: Live Device Camera Capture */}
               <button
                 type='button'
-                onClick={() => {
-                  if (formData.imageUrls.length >= 6) {
-                    setImageUploadError('You can only have up to 6 images per listing');
-                    return;
-                  }
-                  setImageUploadError(false);
-                  setIsCameraOpen(true);
-                }}
-                disabled={uploading || formData.imageUrls.length >= 6}
-                id='open-device-camera-btn'
-                className='flex flex-col items-center justify-center p-4 border-2 border-dashed border-indigo-300 hover:border-indigo-500 bg-indigo-50/50 hover:bg-indigo-50/90 rounded-xl transition cursor-pointer group text-center disabled:opacity-60 disabled:cursor-not-allowed shadow-xs'
+                onClick={() => setIsCameraOpen(true)}
+                id='listing-open-camera-btn'
+                className='flex flex-col items-center justify-center p-3.5 border-2 border-dashed border-indigo-300 hover:border-indigo-500 bg-indigo-50/50 hover:bg-indigo-50/90 rounded-xl transition cursor-pointer group text-center'
               >
-                <div className='w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center mb-1.5 group-hover:scale-110 transition'>
-                  <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                <div className='w-9 h-9 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center mb-1 group-hover:scale-110 transition'>
+                  <svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
                     <path
                       strokeLinecap='round'
                       strokeLinejoin='round'
@@ -861,31 +820,31 @@ export default function CreateListing() {
                   </svg>
                 </div>
                 <span className='text-xs font-bold text-indigo-950 group-hover:text-indigo-900 flex items-center gap-1.5'>
-                  {t('form.takePhoto') || 'Take Photo with Camera'}
-                  <span className='text-[10px] bg-indigo-200/80 text-indigo-800 px-1.5 py-0.5 rounded-full font-medium'>
+                  Take Photo with Camera
+                  <span className='text-[10px] bg-indigo-200/80 text-indigo-800 px-1.5 py-0.2 rounded-full font-medium'>
                     Live
                   </span>
                 </span>
                 <span className='text-[11px] text-slate-500 mt-0.5'>
-                  Snap photos with your phone camera or laptop webcam
+                  Snap photos with laptop webcam or mobile camera
                 </span>
               </button>
 
               {/* Option 2: Choose Images from Local Device */}
               <div className='relative'>
                 <input
+                  type='file'
+                  id='client-local-photos-input'
+                  accept='image/*'
+                  multiple
                   onChange={(e) => {
                     handleProcessLocalFiles(e.target.files);
                     e.target.value = '';
                   }}
                   className='hidden'
-                  type='file'
-                  id='local-system-images'
-                  accept='image/*'
-                  multiple
                 />
                 <label
-                  htmlFor='local-system-images'
+                  htmlFor='client-local-photos-input'
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={(e) => {
                     e.preventDefault();
@@ -893,10 +852,10 @@ export default function CreateListing() {
                       handleProcessLocalFiles(e.dataTransfer.files);
                     }
                   }}
-                  className='flex flex-col items-center justify-center p-4 border-2 border-dashed border-emerald-300 hover:border-emerald-500 bg-emerald-50/40 hover:bg-emerald-50/80 rounded-xl transition cursor-pointer group text-center h-full'
+                  className='flex flex-col items-center justify-center p-3.5 border-2 border-dashed border-emerald-300 hover:border-emerald-500 bg-emerald-50/40 hover:bg-emerald-50/80 rounded-xl transition cursor-pointer group text-center h-full'
                 >
-                  <div className='w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mb-1.5 group-hover:scale-110 transition'>
-                    <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                  <div className='w-9 h-9 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mb-1 group-hover:scale-110 transition'>
+                    <svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
                       <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z' />
                     </svg>
                   </div>
@@ -904,25 +863,20 @@ export default function CreateListing() {
                     Choose Images from Device
                   </span>
                   <span className='text-[11px] text-slate-500 mt-0.5'>
-                    Browse local files or drag &amp; drop photos
+                    Browse files or drag &amp; drop photos (.jpg, .png)
                   </span>
                 </label>
               </div>
             </div>
 
-            {/* Direct Mobile Camera Input (Instant system shutter shortcut) */}
-            <div className='flex items-center justify-between px-3 py-2 bg-slate-100/80 rounded-lg text-xs text-slate-600 border border-slate-200'>
-              <span className='flex items-center gap-1.5 text-[11px] font-medium text-slate-700'>
-                <svg className='w-3.5 h-3.5 text-slate-500' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                  <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z' />
-                </svg>
-                Mobile quick camera trigger:
-              </span>
+            {/* Direct Mobile Quick Camera Trigger */}
+            <div className='flex items-center justify-between px-3 py-1.5 bg-slate-100 rounded-lg text-xs text-slate-600 border border-slate-200'>
+              <span className='text-[11px] text-slate-600'>Mobile camera shortcut:</span>
               <input
                 type='file'
                 accept='image/*'
                 capture='environment'
-                id='direct-mobile-camera-capture'
+                id='client-direct-mobile-camera'
                 className='hidden'
                 onChange={(e) => {
                   if (e.target.files && e.target.files.length > 0) {
@@ -932,265 +886,158 @@ export default function CreateListing() {
                 }}
               />
               <label
-                htmlFor='direct-mobile-camera-capture'
+                htmlFor='client-direct-mobile-camera'
                 className='text-indigo-600 hover:text-indigo-800 font-semibold cursor-pointer underline text-[11px]'
               >
-                Open Native Camera App
+                Launch Native Device Camera App
               </label>
             </div>
 
-            {uploading && (
-              <div className='p-2.5 bg-emerald-100/90 text-emerald-900 rounded-lg text-xs flex items-center justify-center gap-2 font-medium animate-pulse'>
-                <span className='w-3.5 h-3.5 border-2 border-emerald-700 border-t-transparent rounded-full animate-spin' />
-                <span>Optimizing &amp; uploading photo...</span>
+            {/* Progress / Status Notice */}
+            {isProcessingLocalImages && (
+              <div className='p-2 bg-indigo-100/80 text-indigo-900 rounded-lg text-xs flex items-center justify-center gap-2 font-medium animate-pulse'>
+                <span className='w-3.5 h-3.5 border-2 border-indigo-700 border-t-transparent rounded-full animate-spin' />
+                <span>Processing photos...</span>
+              </div>
+            )}
+            {localImageNotice && !isProcessingLocalImages && (
+              <div className='p-2 bg-emerald-100 text-emerald-800 rounded-lg text-xs text-center font-medium'>
+                {localImageNotice}
               </div>
             )}
 
-            {cameraNotice && (
-              <div className='p-2.5 bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-lg text-xs flex items-center gap-2 font-medium'>
-                <svg className='w-4 h-4 text-emerald-600' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                  <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M5 13l4 4L19 7' />
-                </svg>
-                <span>{cameraNotice}</span>
-              </div>
-            )}
-          </div>
-
-          {/* Curated Sample Photo Presets */}
-          <div className='p-3 bg-blue-50/80 border border-blue-200 rounded-xl flex flex-col gap-2'>
-            <div className='flex items-center justify-between'>
-              <span className='text-xs font-semibold text-blue-900'>
-                {formData.category === 'guesthouse'
-                  ? 'Sample Apartment Airbnb Photos'
-                  : 'Sample City Cars & Driver Photos'}
+            {/* Custom URL add */}
+            <div className='pt-1'>
+              <span className='text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1'>
+                Or Add by Web URL
               </span>
-              <span className='text-[10px] text-blue-800 bg-blue-100 px-2 py-0.5 rounded-full font-medium'>
-                Click to Add
-              </span>
-            </div>
-            <div className='grid grid-cols-3 gap-2'>
-              {formData.category === 'guesthouse' ? (
-                <>
-                  <button
-                    type='button'
-                    onClick={() =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        imageUrls: Array.from(
-                          new Set([
-                            ...prev.imageUrls,
-                            '/images/airbnb_apartment_living.jpg',
-                            'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=1200&q=80',
-                          ])
-                        ).slice(0, 6),
-                      }))
-                    }
-                    className='flex flex-col items-center gap-1 p-1.5 bg-white border border-blue-200 rounded-lg hover:border-blue-400 hover:shadow-xs text-center transition cursor-pointer'
-                  >
-                    <img
-                      src='/images/airbnb_apartment_living.jpg'
-                      alt='Modern Studio Airbnb'
-                      className='w-full h-12 object-cover rounded'
-                    />
-                    <span className='text-[10px] font-medium text-slate-700 truncate w-full'>
-                      Modern Studio
-                    </span>
-                  </button>
-                  <button
-                    type='button'
-                    onClick={() =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        imageUrls: Array.from(
-                          new Set([
-                            ...prev.imageUrls,
-                            '/images/airbnb_apartment_bed.jpg',
-                            'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=1200&q=80',
-                          ])
-                        ).slice(0, 6),
-                      }))
-                    }
-                    className='flex flex-col items-center gap-1 p-1.5 bg-white border border-blue-200 rounded-lg hover:border-blue-400 hover:shadow-xs text-center transition cursor-pointer'
-                  >
-                    <img
-                      src='/images/airbnb_apartment_bed.jpg'
-                      alt='Cozy Bedroom Airbnb'
-                      className='w-full h-12 object-cover rounded'
-                    />
-                    <span className='text-[10px] font-medium text-slate-700 truncate w-full'>
-                      Cozy Bedroom
-                    </span>
-                  </button>
-                  <button
-                    type='button'
-                    onClick={() =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        imageUrls: Array.from(
-                          new Set([
-                            ...prev.imageUrls,
-                            'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=1200&q=80',
-                            'https://images.unsplash.com/photo-1493809842364-78817add7ffb?auto=format&fit=crop&w=1200&q=80',
-                          ])
-                        ).slice(0, 6),
-                      }))
-                    }
-                    className='flex flex-col items-center gap-1 p-1.5 bg-white border border-blue-200 rounded-lg hover:border-blue-400 hover:shadow-xs text-center transition cursor-pointer'
-                  >
-                    <img
-                      src='https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=300&q=80'
-                      alt='Urban Loft'
-                      className='w-full h-12 object-cover rounded'
-                    />
-                    <span className='text-[10px] font-medium text-slate-700 truncate w-full'>
-                      Urban Loft
-                    </span>
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button
-                    type='button'
-                    onClick={() =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        imageUrls: Array.from(
-                          new Set([
-                            ...prev.imageUrls,
-                            '/images/city_regular_sedan.jpg',
-                            'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=1200&q=80',
-                          ])
-                        ).slice(0, 6),
-                      }))
-                    }
-                    className='flex flex-col items-center gap-1 p-1.5 bg-white border border-blue-200 rounded-lg hover:border-blue-400 hover:shadow-xs text-center transition cursor-pointer'
-                  >
-                    <img
-                      src='/images/city_regular_sedan.jpg'
-                      alt='City Sedan (Corolla)'
-                      className='w-full h-12 object-cover rounded'
-                    />
-                    <span className='text-[10px] font-medium text-slate-700 truncate w-full'>
-                      City Sedan
-                    </span>
-                  </button>
-                  <button
-                    type='button'
-                    onClick={() =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        imageUrls: Array.from(
-                          new Set([
-                            ...prev.imageUrls,
-                            '/images/city_driver_car.jpg',
-                            'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=1200&q=80',
-                          ])
-                        ).slice(0, 6),
-                      }))
-                    }
-                    className='flex flex-col items-center gap-1 p-1.5 bg-white border border-blue-200 rounded-lg hover:border-blue-400 hover:shadow-xs text-center transition cursor-pointer'
-                  >
-                    <img
-                      src='/images/city_driver_car.jpg'
-                      alt='City Car & Driver'
-                      className='w-full h-12 object-cover rounded'
-                    />
-                    <span className='text-[10px] font-medium text-slate-700 truncate w-full'>
-                      Car & Driver
-                    </span>
-                  </button>
-                  <button
-                    type='button'
-                    onClick={() =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        imageUrls: Array.from(
-                          new Set([
-                            ...prev.imageUrls,
-                            'https://images.unsplash.com/photo-1617788138017-80ad40651399?auto=format&fit=crop&w=1200&q=80',
-                            'https://images.unsplash.com/photo-1590362891991-f776e747a588?auto=format&fit=crop&w=1200&q=80',
-                          ])
-                        ).slice(0, 6),
-                      }))
-                    }
-                    className='flex flex-col items-center gap-1 p-1.5 bg-white border border-blue-200 rounded-lg hover:border-blue-400 hover:shadow-xs text-center transition cursor-pointer'
-                  >
-                    <img
-                      src='https://images.unsplash.com/photo-1617788138017-80ad40651399?auto=format&fit=crop&w=300&q=80'
-                      alt='Executive Sedan (Camry)'
-                      className='w-full h-12 object-cover rounded'
-                    />
-                    <span className='text-[10px] font-medium text-slate-700 truncate w-full'>
-                      Executive Sedan
-                    </span>
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-
-          {imageUploadError && (
-            <p className='text-red-600 text-sm bg-red-50 p-2.5 rounded-lg border border-red-200'>
-              {imageUploadError}
-            </p>
-          )}
-
-          {formData.imageUrls.length > 0 && (
-            <div className='flex flex-col gap-2 max-h-80 overflow-y-auto pr-1'>
-              {formData.imageUrls.map((url, index) => (
-                <div
-                  key={url + index}
-                  className='flex justify-between p-3 border border-slate-200 rounded-lg items-center bg-white shadow-xs'
+              <div className='flex gap-2'>
+                <input
+                  type='url'
+                  placeholder='Paste image URL (https://... or /images/...)'
+                  value={newImageUrl}
+                  onChange={(e) => setNewImageUrl(e.target.value)}
+                  className='flex-1 px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:ring-1 focus:ring-slate-700'
+                />
+                <button
+                  type='button'
+                  onClick={handleAddImageUrl}
+                  className='px-3.5 py-1.5 bg-slate-800 text-white text-xs font-semibold rounded-lg hover:bg-slate-700 transition cursor-pointer'
                 >
-                  <img
-                    src={url}
-                    alt='listing preview'
-                    className='w-20 h-16 object-cover rounded-md'
-                  />
-                  <span className='text-xs text-slate-500'>
-                    {index === 0 ? 'Cover Photo' : `Photo ${index + 1}`}
-                  </span>
-                  <button
-                    type='button'
-                    onClick={() => handleRemoveImage(index)}
-                    className='p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg text-xs font-semibold uppercase transition'
-                  >
-                    Delete
-                  </button>
-                </div>
-              ))}
+                  Add Photo
+                </button>
+              </div>
+            </div>
+
+            {/* Photo Thumbnails */}
+            {formData.imageUrls.length > 0 ? (
+              <div className='grid grid-cols-2 sm:grid-cols-4 gap-2.5 max-h-48 overflow-y-auto p-2 bg-white rounded-xl border border-slate-200 shadow-2xs'>
+                {formData.imageUrls.map((url, index) => (
+                  <div key={index} className='relative group rounded-lg overflow-hidden h-20 border border-slate-200 bg-slate-100'>
+                    <img
+                      src={url}
+                      alt={`Listing photo ${index + 1}`}
+                      className='w-full h-full object-cover'
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = category === 'guesthouse' ? '/images/airbnb_apartment_living.jpg' : '/images/city_regular_sedan.jpg';
+                      }}
+                    />
+                    {index === 0 && (
+                      <span className='absolute bottom-1 left-1 bg-slate-900/85 text-white text-[8px] font-bold px-1.5 py-0.5 rounded'>
+                        Cover
+                      </span>
+                    )}
+                    <button
+                      type='button'
+                      onClick={() => handleRemoveImageUrl(index)}
+                      className='absolute top-1 right-1 bg-rose-600 hover:bg-rose-700 text-white p-1 rounded-full text-[10px] opacity-90 group-hover:opacity-100 transition-opacity cursor-pointer shadow-xs'
+                      title='Remove photo'
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className='p-4 rounded-xl border border-dashed border-slate-300 bg-white text-center text-xs text-slate-500'>
+                <p className='font-medium text-slate-700'>No photos added yet</p>
+                <p className='text-[11px] text-slate-400 mt-0.5'>
+                  Use the options above to take a photo with your camera or select files from your local device.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Publishing & Moderation Toggles */}
+          {isAdmin ? (
+            <div className='p-3.5 bg-slate-50 rounded-xl border border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3'>
+              <label className='inline-flex items-center gap-2 cursor-pointer'>
+                <input
+                  type='checkbox'
+                  name='isApproved'
+                  checked={formData.isApproved}
+                  onChange={handleChange}
+                  className='w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500'
+                />
+                <span className='text-xs font-bold text-emerald-800'>
+                  Publish as Approved (Instant live visibility)
+                </span>
+              </label>
+
+              <label className='inline-flex items-center gap-2 cursor-pointer'>
+                <input
+                  type='checkbox'
+                  name='active'
+                  checked={formData.active}
+                  onChange={handleChange}
+                  className='w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500'
+                />
+                <span className='text-xs font-semibold text-slate-700'>
+                  Active in Public Search
+                </span>
+              </label>
+            </div>
+          ) : (
+            <div className='p-3.5 bg-amber-50/70 rounded-xl border border-amber-200 flex items-start gap-2.5 text-xs text-amber-900'>
+              <svg className='w-4 h-4 text-amber-600 shrink-0 mt-0.5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z' />
+              </svg>
+              <div>
+                <span className='font-bold text-amber-950 block mb-0.5'>Moderation Notice:</span>
+                Your property will be held in a pending state for administrator moderation. Once verified, it will instantly appear across the homepage and search catalog.
+              </div>
             </div>
           )}
 
-          <button
-            type='submit'
-            disabled={loading || uploading || !isEmailVerified}
-            className='p-3.5 bg-black text-white rounded-lg uppercase hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed font-semibold tracking-wide transition shadow-sm cursor-pointer'
-          >
-            {!isEmailVerified ? 'Verify Email to Submit Listing' : loading ? 'Submitting...' : 'Submit Listing for Review'}
-          </button>
-
-          {error && (
-            <p className='text-red-600 text-sm bg-red-50 p-3 rounded-lg border border-red-200'>
-              {error}
-            </p>
-          )}
-
-          <div className='p-4 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 leading-relaxed'>
-            <p className='font-semibold text-slate-700 mb-1'>Moderation Notice:</p>
-            All submitted guest houses and chauffeured car listings are held in
-            a pending state for administrator moderation. Once verified, your
-            listing will appear on the homepage and search catalog.
+          {/* Form Action Controls */}
+          <div className='flex items-center justify-end gap-3 pt-3 border-t border-slate-100'>
+            <Link
+              to='/profile'
+              className='px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 rounded-lg hover:bg-slate-100 transition-colors'
+            >
+              Cancel
+            </Link>
+            <button
+              type='submit'
+              disabled={loading || (!isEmailVerified && !isAdmin)}
+              className='inline-flex items-center gap-2 px-6 py-2.5 text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white rounded-lg shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer'
+            >
+              {loading && (
+                <div className='w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin' />
+              )}
+              <span>{loading ? 'Creating Listing...' : (isAdmin ? 'Create & Publish Listing' : 'Submit Listing for Review')}</span>
+            </button>
           </div>
-        </div>
-      </form>
+        </form>
+      </div>
 
       {/* Interactive Device Camera Capture Modal */}
       <CameraCaptureModal
         isOpen={isCameraOpen}
         onClose={() => setIsCameraOpen(false)}
         onCapture={handleProcessCameraPhoto}
-        maxAllowed={6}
+        maxAllowed={8}
         currentCount={formData.imageUrls.length}
       />
     </main>

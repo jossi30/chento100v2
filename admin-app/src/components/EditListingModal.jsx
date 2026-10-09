@@ -320,13 +320,13 @@ export default function EditListingModal({
           {/* Location & Contact */}
           <div className='grid grid-cols-1 sm:grid-cols-3 gap-3'>
             <div>
-              <label className='font-bold block mb-1'>City / Region</label>
+              <label className='font-bold block mb-1'>Neighborhood / Division</label>
               <input
                 type='text'
                 name='city'
                 value={formData.city}
                 onChange={handleChange}
-                placeholder='e.g. Zanzibar'
+                placeholder='e.g. Muyenga, Makindye Division'
                 className='w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl'
               />
             </div>
@@ -338,7 +338,7 @@ export default function EditListingModal({
                 name='address'
                 value={formData.address}
                 onChange={handleChange}
-                placeholder='e.g. Kendwa Beach Road'
+                placeholder='e.g. Tank Hill Road, Makindye Division, Kampala'
                 className='w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl'
               />
             </div>

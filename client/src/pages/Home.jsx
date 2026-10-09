@@ -39,7 +39,7 @@ import 'swiper/css/pagination';
 const HERO_IMAGE = '/hero.jpg';
 
 export default function Home() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const navigate = useNavigate();
   const heroSwiperRef = useRef(null);
   const swiperRef = useRef(null);
@@ -120,12 +120,12 @@ export default function Home() {
           <div className='grid grid-cols-1 lg:grid-cols-12 gap-8 items-start'>
             <div className='lg:col-span-8 space-y-8'>
               <h1 className='text-5xl sm:text-6xl lg:text-7xl font-medium tracking-tighter leading-[1.02] text-neutral-900'>
-                Find your next Guest Houses &amp; Private Car with ease
+                {t('home.heroHeadline')}
               </h1>
             </div>
 
             <p className='lg:col-span-3 lg:col-start-10 lg:pt-10 text-neutral-500 text-xs sm:text-[13px] leading-relaxed max-w-xs'>
-              Browse handpicked guest houses and private vehicles with professional drivers. Every listing is reviewed by administrators before publication.
+              {t('home.heroSubheadline')}
             </p>
           </div>
 
@@ -181,7 +181,7 @@ export default function Home() {
                       [offer.city, offer.area].filter(Boolean).join(', ') ||
                       offer.location ||
                       offer.address ||
-                      'City Center';
+                      'Makindye, Kampala';
 
                     return (
                       <SwiperSlide key={offer.id || index} className='relative w-full h-full'>
@@ -202,16 +202,16 @@ export default function Home() {
                           <div className='flex items-center gap-2 flex-wrap'>
                             <span className='inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-extrabold tracking-wider uppercase bg-rose-600 text-white shadow-md'>
                               <FaFire className='text-amber-300 text-xs' />
-                              <span>Admin Offer</span>
+                              <span>{t('home.adminOffer')}</span>
                             </span>
 
                             <span className='px-3 py-1 rounded-full text-[11px] font-semibold bg-white/20 backdrop-blur-md text-white border border-white/20 shadow-xs'>
-                              {isGuestHouse ? '🏡 Guest House' : '🚗 Car Leasing'}
+                              {isGuestHouse ? `🏡 ${t('home.guestHouses')}` : `🚗 ${t('home.carLeasing')}`}
                             </span>
 
                             {hasDiscount && (
                               <span className='px-2.5 py-0.5 rounded-full text-[11px] font-black bg-amber-400 text-neutral-950 shadow-md'>
-                                Save ${savings}/{priceUnit}
+                                {t('home.save')} ${savings}/{priceUnit}
                               </span>
                             )}
                           </div>
@@ -249,7 +249,7 @@ export default function Home() {
                               to={`/listing/${offer.id}`}
                               className='inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-black text-white hover:bg-neutral-800 font-bold text-xs shadow-md transition border border-neutral-700'
                             >
-                              <span>Explore Offer</span>
+                              <span>{t('home.exploreOffer')}</span>
                               <span>→</span>
                             </Link>
                           </div>
@@ -300,7 +300,7 @@ export default function Home() {
                   onClick={() => setActiveTab('all')}
                   className={`${tabBase} ${activeTab === 'all' ? tabActive : tabIdle}`}
                 >
-                  All Categories
+                  {t('home.allCategories')}
                 </button>
                 <button
                   type='button'
@@ -308,7 +308,7 @@ export default function Home() {
                   className={`${tabBase} ${activeTab === 'guesthouse' ? tabActive : tabIdle}`}
                 >
                   <FaHome />
-                  <span>Guest Houses</span>
+                  <span>{t('home.guestHouses')}</span>
                 </button>
                 <button
                   type='button'
@@ -316,7 +316,7 @@ export default function Home() {
                   className={`${tabBase} ${activeTab === 'car' ? tabActive : tabIdle}`}
                 >
                   <FaCar />
-                  <span>Car Leasing</span>
+                  <span>{t('home.carLeasing')}</span>
                 </button>
               </div>
 
@@ -330,10 +330,10 @@ export default function Home() {
                     onChange={(e) => setSearchLocation(e.target.value)}
                     placeholder={
                       activeTab === 'guesthouse'
-                        ? 'Search by city or neighborhood (e.g. Asmara, Downtown, Beach)...'
+                        ? t('home.searchPlaceholderStay')
                         : activeTab === 'car'
-                        ? 'Search car make, model, or city (e.g. Toyota, Prado, Sedan)...'
-                        : 'Search location, property, or vehicle...'
+                        ? t('home.searchPlaceholderCar')
+                        : t('home.searchPlaceholderAll')
                     }
                     className='w-full pl-11 pr-4 py-3 bg-white border border-neutral-200 rounded-lg text-sm text-neutral-900 placeholder-neutral-400 focus:outline-hidden focus:border-neutral-900'
                   />
@@ -344,7 +344,7 @@ export default function Home() {
                   className='w-full sm:w-auto px-8 py-3 bg-black hover:bg-neutral-800 text-white font-bold text-sm rounded-lg transition flex items-center justify-center gap-2 cursor-pointer shadow-md'
                 >
                   <FaSearch />
-                  <span>Search</span>
+                  <span>{t('home.searchButton')}</span>
                 </button>
               </form>
             </div>
@@ -365,13 +365,13 @@ export default function Home() {
                 <div>
                   <div className='inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-rose-100 text-rose-700 mb-1'>
                     <FaTag className='text-[10px]' />
-                    <span>Special Promotional Rates</span>
+                    <span>{t('home.specialPromo')}</span>
                   </div>
                   <h2 className='text-2xl sm:text-3xl font-medium tracking-tight text-neutral-900'>
-                    Best Offers &amp; Highlights
+                    {t('home.bestOffers')}
                   </h2>
                   <p className='text-xs text-neutral-500 mt-0.5'>
-                    Handpicked discounts on premium guest retreats and private chauffeured vehicles
+                    {t('home.bestOffersSub')}
                   </p>
                 </div>
               </div>
@@ -401,7 +401,7 @@ export default function Home() {
                   to='/search?offer=true'
                   className='text-xs font-medium text-neutral-900 border border-neutral-200 hover:border-neutral-900 px-4 py-2 rounded-md transition whitespace-nowrap'
                 >
-                  View all offers →
+                  {t('home.viewAllOffers')}
                 </Link>
               </div>
             </div>
@@ -462,7 +462,7 @@ export default function Home() {
                     [listing.city, listing.area].filter(Boolean).join(', ') ||
                     listing.location ||
                     listing.address ||
-                    'City Center';
+                    'Makindye, Kampala';
 
                   return (
                     <SwiperSlide key={listing.id} className='h-auto'>
@@ -482,18 +482,18 @@ export default function Home() {
                           {/* Floating Badges */}
                           <div className='absolute top-3 left-3 flex items-center gap-1.5 flex-wrap'>
                             <span className='bg-neutral-900/85 backdrop-blur-md text-white text-[11px] font-semibold px-2.5 py-1 rounded-full shadow-xs border border-white/10'>
-                              {isGuestHouse ? 'Guest House' : 'Car Leasing'}
+                              {isGuestHouse ? t('listing.guestHouse') : t('listing.carLeasing')}
                             </span>
                             <span className='bg-rose-600 text-white text-[10px] font-extrabold px-2.5 py-1 rounded-full shadow-xs flex items-center gap-1'>
                               <FaFire className='text-amber-300 text-xs' />
-                              <span>Best Offer</span>
+                              <span>{t('home.bestOffer')}</span>
                             </span>
                           </div>
 
                           {/* Discount Savings Tag */}
                           {hasDiscount && (
                             <div className='absolute top-3 right-3 bg-amber-400 text-neutral-950 font-black text-[11px] px-2.5 py-1 rounded-full shadow-md'>
-                              Save ${savings}/{priceUnit}
+                              {t('home.save')} ${savings}/{priceUnit}
                             </div>
                           )}
                         </Link>
@@ -517,28 +517,28 @@ export default function Home() {
                               <>
                                 <span className='flex items-center gap-1'>
                                   <FaBed className='text-neutral-400' />
-                                  <span>{listing.bedrooms || 1} beds</span>
+                                  <span>{listing.bedrooms || 1} {t('listing.beds')}</span>
                                 </span>
                                 <span className='flex items-center gap-1'>
                                   <FaBath className='text-neutral-400' />
-                                  <span>{listing.bathrooms || 1} baths</span>
+                                  <span>{listing.bathrooms || 1} {t('listing.baths')}</span>
                                 </span>
                                 <span className='flex items-center gap-1'>
                                   <FaUserFriends className='text-neutral-400' />
-                                  <span>{listing.maxGuests || 2} max</span>
+                                  <span>{listing.maxGuests || 2} {t('listing.max')}</span>
                                 </span>
                               </>
                             ) : (
                               <>
                                 <span className='flex items-center gap-1'>
                                   <FaCar className='text-neutral-400' />
-                                  <span>{listing.seats || 4} seats</span>
+                                  <span>{listing.seats || 4} {t('listing.seats')}</span>
                                 </span>
                                 <span className='capitalize font-medium'>
                                   {listing.transmission || 'Auto'}
                                 </span>
                                 <span className='text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded'>
-                                  {listing.driverIncluded ? 'With Driver' : 'Self-Drive'}
+                                  {listing.driverIncluded ? t('listing.withDriver') : t('listing.selfDrive')}
                                 </span>
                               </>
                             )}
@@ -567,7 +567,7 @@ export default function Home() {
                               to={`/listing/${listing.id}`}
                               className='px-3.5 py-1.5 bg-black hover:bg-neutral-800 text-white text-xs font-semibold rounded-lg transition flex items-center gap-1 shadow-xs'
                             >
-                              <span>View Deal</span>
+                              <span>{t('home.viewDeal')}</span>
                               <span>→</span>
                             </Link>
                           </div>
@@ -589,15 +589,15 @@ export default function Home() {
                 <FaHome />
               </span>
               <div>
-                <h2 className='text-2xl sm:text-3xl font-medium tracking-tight text-neutral-900'>Boutique Guest Houses</h2>
-                <p className='text-xs text-neutral-500 mt-0.5'>Relaxing retreats, fully furnished studios, and villas</p>
+                <h2 className='text-2xl sm:text-3xl font-medium tracking-tight text-neutral-900'>{t('home.boutiqueGuestHouses')}</h2>
+                <p className='text-xs text-neutral-500 mt-0.5'>{t('home.boutiqueSub')}</p>
               </div>
             </div>
             <Link
               to='/search?type=guesthouse'
               className='text-xs font-semibold text-white bg-black hover:bg-neutral-800 px-4 py-2 rounded-lg transition whitespace-nowrap shadow-xs'
             >
-              Show more guest houses →
+              {t('home.showMoreStays')}
             </Link>
           </div>
 
@@ -619,9 +619,9 @@ export default function Home() {
               <div className='w-12 h-12 rounded-full bg-white border border-neutral-200 text-neutral-900 flex items-center justify-center mx-auto text-xl'>
                 <FaHome />
               </div>
-              <h3 className='text-base font-medium text-neutral-900'>No guest house listings yet</h3>
+              <h3 className='text-base font-medium text-neutral-900'>{t('home.noStaysYet')}</h3>
               <p className='text-xs text-neutral-500 max-w-md mx-auto leading-relaxed'>
-                There are currently no approved guest houses listed. Be the first host to list your property for travelers!
+                {t('home.noStaysDesc')}
               </p>
               <div className='pt-2'>
                 <Link
@@ -629,7 +629,7 @@ export default function Home() {
                   className='inline-flex items-center gap-2 px-5 py-2.5 bg-black hover:bg-neutral-800 text-white rounded-lg text-xs font-semibold transition shadow-xs'
                 >
                   <FaPlus className='text-xs' />
-                  <span>Partner with Us — List a Guest House</span>
+                  <span>{t('home.partnerListStay')}</span>
                 </Link>
               </div>
             </div>
@@ -644,15 +644,15 @@ export default function Home() {
                 <FaCar />
               </span>
               <div>
-                <h2 className='text-2xl sm:text-3xl font-medium tracking-tight text-neutral-900'>Car Leasing &amp; Chauffeur Rides</h2>
-                <p className='text-xs text-neutral-500 mt-0.5'>City sedans, safari SUVs, and executive cars with drivers</p>
+                <h2 className='text-2xl sm:text-3xl font-medium tracking-tight text-neutral-900'>{t('home.carLeasingRides')}</h2>
+                <p className='text-xs text-neutral-500 mt-0.5'>{t('home.carLeasingSub')}</p>
               </div>
             </div>
             <Link
               to='/search?type=car'
               className='text-xs font-semibold text-white bg-black hover:bg-neutral-800 px-4 py-2 rounded-lg transition whitespace-nowrap shadow-xs'
             >
-              Show more vehicles →
+              {t('home.showMoreVehicles')}
             </Link>
           </div>
 
@@ -674,9 +674,9 @@ export default function Home() {
               <div className='w-12 h-12 rounded-full bg-white border border-neutral-200 text-neutral-900 flex items-center justify-center mx-auto text-xl'>
                 <FaCar />
               </div>
-              <h3 className='text-base font-medium text-neutral-900'>No car leasing listings yet</h3>
+              <h3 className='text-base font-medium text-neutral-900'>{t('home.noCarsYet')}</h3>
               <p className='text-xs text-neutral-500 max-w-md mx-auto leading-relaxed'>
-                There are currently no approved vehicles listed. Operators and private chauffeurs can list vehicles for lease now.
+                {t('home.noCarsDesc')}
               </p>
               <div className='pt-2'>
                 <Link
@@ -684,7 +684,7 @@ export default function Home() {
                   className='inline-flex items-center gap-2 px-5 py-2.5 bg-black hover:bg-neutral-800 text-white rounded-lg text-xs font-semibold transition shadow-xs'
                 >
                   <FaPlus className='text-xs' />
-                  <span>Partner with Us — List a Vehicle</span>
+                  <span>{t('home.partnerListCar')}</span>
                 </Link>
               </div>
             </div>
@@ -696,35 +696,35 @@ export default function Home() {
           <div className='grid grid-cols-1 lg:grid-cols-12 gap-10'>
             <div className='lg:col-span-4'>
               <h2 className='text-3xl sm:text-4xl font-medium tracking-tighter text-neutral-900 leading-tight'>
-                Why Choose chento 100?
+                {t('home.whyChoose')}
               </h2>
               <p className='text-xs text-neutral-500 mt-3 max-w-xs leading-relaxed'>
-                A trustworthy marketplace built for hospitality and mobility
+                {t('home.whyChooseSub')}
               </p>
             </div>
 
             <div className='lg:col-span-8 grid grid-cols-1 sm:grid-cols-3 gap-8'>
               <div className='space-y-2 sm:border-l sm:border-neutral-200 sm:pl-6'>
                 <div className='text-sm font-medium text-neutral-400'>1</div>
-                <h3 className='font-medium text-neutral-900 text-base'>Pre-moderated Quality</h3>
+                <h3 className='font-medium text-neutral-900 text-base'>{t('home.qualityPillar')}</h3>
                 <p className='text-xs text-neutral-500 leading-relaxed'>
-                  Every listing is verified by our administration team before appearing publicly. No fake spam or duplicate listings.
+                  {t('home.qualityPillarDesc')}
                 </p>
               </div>
 
               <div className='space-y-2 sm:border-l sm:border-neutral-200 sm:pl-6'>
                 <div className='text-sm font-medium text-neutral-400'>2</div>
-                <h3 className='font-medium text-neutral-900 text-base'>Direct Owner Contact</h3>
+                <h3 className='font-medium text-neutral-900 text-base'>{t('home.directContactPillar')}</h3>
                 <p className='text-xs text-neutral-500 leading-relaxed'>
-                  Connect straight with property managers and private chauffeurs via phone, WhatsApp, or email with zero intermediary markup.
+                  {t('home.directContactDesc')}
                 </p>
               </div>
 
               <div className='space-y-2 sm:border-l sm:border-neutral-200 sm:pl-6'>
                 <div className='text-sm font-medium text-neutral-400'>3</div>
-                <h3 className='font-medium text-neutral-900 text-base'>Verified Profiles</h3>
+                <h3 className='font-medium text-neutral-900 text-base'>{t('home.verifiedProfiles')}</h3>
                 <p className='text-xs text-neutral-500 leading-relaxed'>
-                  Hosts and drivers must confirm their email and credentials before submitting listings to protect guests and renters.
+                  {t('home.verifiedProfilesDesc')}
                 </p>
               </div>
             </div>
@@ -735,29 +735,29 @@ export default function Home() {
         <section className='border-t border-neutral-200 pt-16 space-y-8'>
           <div className='flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-neutral-200 pb-4'>
             <div>
-              <span className='text-xs uppercase tracking-wider text-neutral-400 font-semibold'>Regional Discovery</span>
+              <span className='text-xs uppercase tracking-wider text-neutral-400 font-semibold'>{t('home.makindyeKampala')}</span>
               <h2 className='text-2xl sm:text-3xl font-medium tracking-tight text-neutral-900 mt-1'>
-                Featured Destinations &amp; Travel Hubs
+                {t('home.featuredNeighborhoods')}
               </h2>
               <p className='text-xs text-neutral-500 mt-1'>
-                Explore boutique stays and book dependable chauffeurs across top regional hubs
+                {t('home.featuredNeighborhoodsSub')}
               </p>
             </div>
             <Link
               to='/search'
               className='text-xs font-semibold text-white bg-black hover:bg-neutral-800 px-4 py-2 rounded-lg transition whitespace-nowrap shadow-xs self-start sm:self-auto'
             >
-              Explore all locations →
+              {t('home.exploreAllNeighborhoods')}
             </Link>
           </div>
 
           <div className='grid grid-cols-1 md:grid-cols-3 gap-6'>
-            {/* Destination 1: Asmara Historic Downtown */}
+            {/* Destination 1: Muyenga (Tank Hill) */}
             <div className='group border border-neutral-200 rounded-3xl overflow-hidden hover:shadow-md transition-all duration-300 flex flex-col bg-white'>
               <div className='relative h-52 w-full overflow-hidden bg-neutral-100'>
                 <img
                   src='/images/destination_asmara_city.jpg'
-                  alt='Asmara Historic City Center'
+                  alt='Muyenga Tank Hill Kampala'
                   className='w-full h-full object-cover group-hover:scale-105 transition-transform duration-500'
                   onError={(e) => {
                     e.currentTarget.src = '/images/airbnb_apartment_living.jpg';
@@ -765,46 +765,42 @@ export default function Home() {
                 />
                 <div className='absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent' />
                 <div className='absolute bottom-3 left-4 right-4 text-white'>
-                  <span className='text-[11px] font-medium tracking-wide uppercase text-amber-300'>Capital District</span>
-                  <h3 className='text-lg font-medium text-white tracking-tight'>Asmara Downtown</h3>
+                  <span className='text-[11px] font-medium tracking-wide uppercase text-amber-300'>{t('home.lakeViewRidge')}</span>
+                  <h3 className='text-lg font-medium text-white tracking-tight'>Muyenga (Tank Hill)</h3>
                 </div>
               </div>
               <div className='p-5 flex-1 flex flex-col justify-between space-y-4'>
                 <div className='space-y-1.5'>
-                  <div className='flex items-center gap-2 text-xs text-neutral-500'>
-                    <span>UNESCO Art Deco</span>
-                    <span>·</span>
-                    <span>Café Culture</span>
-                    <span>·</span>
-                    <span>Airport Access</span>
+                  <div className='text-xs text-neutral-500'>
+                    <span>{t('home.lakeViewTags')}</span>
                   </div>
                   <p className='text-xs text-neutral-600 leading-relaxed'>
-                    Stroll palm-lined avenues, Italian colonial architecture, and lively espresso cafes. Ideal for executive stays and diaspora visits.
+                    {t('home.lakeViewDesc')}
                   </p>
                 </div>
                 <div className='pt-2 flex items-center gap-2'>
                   <Link
-                    to='/search?city=Asmara&type=guesthouse'
+                    to='/search?city=Muyenga&type=guesthouse'
                     className='flex-1 text-center py-2 px-3 bg-black hover:bg-neutral-800 text-white rounded-lg text-xs font-semibold transition shadow-xs'
                   >
-                    View Stays
+                    {t('home.viewStays')}
                   </Link>
                   <Link
-                    to='/search?city=Asmara&type=car'
+                    to='/search?city=Muyenga&type=car'
                     className='flex-1 text-center py-2 px-3 bg-black hover:bg-neutral-800 text-white rounded-lg text-xs font-semibold transition shadow-xs border border-neutral-700'
                   >
-                    Chauffeur Car
+                    {t('home.chauffeurCar')}
                   </Link>
                 </div>
               </div>
             </div>
 
-            {/* Destination 2: Massawa Red Sea Coast */}
+            {/* Destination 2: Munyonyo & Buziga */}
             <div className='group border border-neutral-200 rounded-3xl overflow-hidden hover:shadow-md transition-all duration-300 flex flex-col bg-white'>
               <div className='relative h-52 w-full overflow-hidden bg-neutral-100'>
                 <img
                   src='/images/zanzibar_guest_house.jpg'
-                  alt='Massawa Red Sea Coast'
+                  alt='Munyonyo Waterfront and Buziga'
                   className='w-full h-full object-cover group-hover:scale-105 transition-transform duration-500'
                   onError={(e) => {
                     e.currentTarget.src = '/images/safari_land_cruiser.jpg';
@@ -812,46 +808,42 @@ export default function Home() {
                 />
                 <div className='absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent' />
                 <div className='absolute bottom-3 left-4 right-4 text-white'>
-                  <span className='text-[11px] font-medium tracking-wide uppercase text-amber-300'>Red Sea Coast</span>
-                  <h3 className='text-lg font-medium text-white tracking-tight'>Massawa Maritime Harbor</h3>
+                  <span className='text-[11px] font-medium tracking-wide uppercase text-amber-300'>{t('home.lakesideLuxury')}</span>
+                  <h3 className='text-lg font-medium text-white tracking-tight'>Munyonyo &amp; Buziga</h3>
                 </div>
               </div>
               <div className='p-5 flex-1 flex flex-col justify-between space-y-4'>
                 <div className='space-y-1.5'>
-                  <div className='flex items-center gap-2 text-xs text-neutral-500'>
-                    <span>Coral Old Town</span>
-                    <span>·</span>
-                    <span>Beach Resorts</span>
-                    <span>·</span>
-                    <span>Island Trips</span>
+                  <div className='text-xs text-neutral-500'>
+                    <span>{t('home.lakesideTags')}</span>
                   </div>
                   <p className='text-xs text-neutral-600 leading-relaxed'>
-                    Historic maritime port with warm sea breezes, coastal retreats, and fresh seafood. Scenic 2.5h highway descent from Asmara.
+                    {t('home.lakesideDesc')}
                   </p>
                 </div>
                 <div className='pt-2 flex items-center gap-2'>
                   <Link
-                    to='/search?city=Massawa&type=guesthouse'
+                    to='/search?city=Munyonyo&type=guesthouse'
                     className='flex-1 text-center py-2 px-3 bg-black hover:bg-neutral-800 text-white rounded-lg text-xs font-semibold transition shadow-xs'
                   >
-                    View Stays
+                    {t('home.viewStays')}
                   </Link>
                   <Link
-                    to='/search?city=Massawa&type=car'
+                    to='/search?city=Munyonyo&type=car'
                     className='flex-1 text-center py-2 px-3 bg-black hover:bg-neutral-800 text-white rounded-lg text-xs font-semibold transition shadow-xs border border-neutral-700'
                   >
-                    Hire 4x4 / Car
+                    {t('home.hire4x4')}
                   </Link>
                 </div>
               </div>
             </div>
 
-            {/* Destination 3: Keren & Highland Escapes */}
+            {/* Destination 3: Kansanga, Kabalagala & Ggaba */}
             <div className='group border border-neutral-200 rounded-3xl overflow-hidden hover:shadow-md transition-all duration-300 flex flex-col bg-white'>
               <div className='relative h-52 w-full overflow-hidden bg-neutral-100'>
                 <img
                   src='/images/savannah_safari_lodge.jpg'
-                  alt='Keren Highland Escapes'
+                  alt='Kansanga Kabalagala and Ggaba'
                   className='w-full h-full object-cover group-hover:scale-105 transition-transform duration-500'
                   onError={(e) => {
                     e.currentTarget.src = '/images/city_driver_car.jpg';
@@ -859,35 +851,31 @@ export default function Home() {
                 />
                 <div className='absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent' />
                 <div className='absolute bottom-3 left-4 right-4 text-white'>
-                  <span className='text-[11px] font-medium tracking-wide uppercase text-amber-300'>Northern Highlands</span>
-                  <h3 className='text-lg font-medium text-white tracking-tight'>Keren Mountain Valley</h3>
+                  <span className='text-[11px] font-medium tracking-wide uppercase text-amber-300'>{t('home.diningLakeShore')}</span>
+                  <h3 className='text-lg font-medium text-white tracking-tight'>Kansanga &amp; Ggaba Shore</h3>
                 </div>
               </div>
               <div className='p-5 flex-1 flex flex-col justify-between space-y-4'>
                 <div className='space-y-1.5'>
-                  <div className='flex items-center gap-2 text-xs text-neutral-500'>
-                    <span>Valley Retreats</span>
-                    <span>·</span>
-                    <span>Citrus Orchards</span>
-                    <span>·</span>
-                    <span>Culture Markets</span>
+                  <div className='text-xs text-neutral-500'>
+                    <span>{t('home.diningTags')}</span>
                   </div>
                   <p className='text-xs text-neutral-600 leading-relaxed'>
-                    Tranquil valley celebrated for serene mountain scenery, friendly hospitality, and scenic highland driving routes.
+                    {t('home.diningDesc')}
                   </p>
                 </div>
                 <div className='pt-2 flex items-center gap-2'>
                   <Link
-                    to='/search?city=Keren&type=guesthouse'
+                    to='/search?city=Kansanga&type=guesthouse'
                     className='flex-1 text-center py-2 px-3 bg-black hover:bg-neutral-800 text-white rounded-lg text-xs font-semibold transition shadow-xs'
                   >
-                    View Stays
+                    {t('home.viewStays')}
                   </Link>
                   <Link
-                    to='/search?city=Keren&type=car'
+                    to='/search?city=Kansanga&type=car'
                     className='flex-1 text-center py-2 px-3 bg-black hover:bg-neutral-800 text-white rounded-lg text-xs font-semibold transition shadow-xs border border-neutral-700'
                   >
-                    Book Driver
+                    {t('home.bookDriver')}
                   </Link>
                 </div>
               </div>
@@ -898,12 +886,12 @@ export default function Home() {
         {/* Section 4: The chento 100 Experience — How It Works */}
         <section className='border-t border-neutral-200 pt-16 space-y-10'>
           <div className='max-w-2xl'>
-            <span className='text-xs uppercase tracking-wider text-neutral-400 font-semibold'>Simple &amp; Transparent</span>
+            <span className='text-xs uppercase tracking-wider text-neutral-400 font-semibold'>{t('home.simpleTransparent')}</span>
             <h2 className='text-3xl sm:text-4xl font-medium tracking-tighter text-neutral-900 mt-1'>
-              The chento 100 Experience
+              {t('home.howItWorksTitle')}
             </h2>
             <p className='text-xs sm:text-sm text-neutral-500 mt-2 leading-relaxed'>
-              Booking verified accommodations and dedicated private transportation takes just three simple steps.
+              {t('home.howItWorksSubtitle')}
             </p>
           </div>
 
@@ -912,9 +900,9 @@ export default function Home() {
               <div className='w-9 h-9 rounded-full bg-neutral-900 text-white flex items-center justify-center text-xs font-bold'>
                 01
               </div>
-              <h3 className='text-base font-semibold text-neutral-900'>Discover Handpicked Listings</h3>
+              <h3 className='text-base font-semibold text-neutral-900'>{t('home.step1Title')}</h3>
               <p className='text-xs text-neutral-500 leading-relaxed'>
-                Search through pre-screened boutique apartments, guest villas, and chauffeur-driven sedans or SUVs with transparent photos and clear pricing.
+                {t('home.step1Desc')}
               </p>
             </div>
 
@@ -922,9 +910,9 @@ export default function Home() {
               <div className='w-9 h-9 rounded-full bg-neutral-900 text-white flex items-center justify-center text-xs font-bold'>
                 02
               </div>
-              <h3 className='text-base font-semibold text-neutral-900'>Direct Host &amp; Driver Contact</h3>
+              <h3 className='text-base font-semibold text-neutral-900'>{t('home.step2Title')}</h3>
               <p className='text-xs text-neutral-500 leading-relaxed'>
-                Contact property managers or private chauffeurs directly via WhatsApp, phone, or instant on-site inquiry. No hidden broker charges.
+                {t('home.step2Desc')}
               </p>
             </div>
 
@@ -932,9 +920,9 @@ export default function Home() {
               <div className='w-9 h-9 rounded-full bg-neutral-900 text-white flex items-center justify-center text-xs font-bold'>
                 03
               </div>
-              <h3 className='text-base font-semibold text-neutral-900'>Guaranteed Moderation</h3>
+              <h3 className='text-base font-semibold text-neutral-900'>{t('home.step3Title')}</h3>
               <p className='text-xs text-neutral-500 leading-relaxed'>
-                Every listing is verified by our administration team before publishing. Rest easy knowing descriptions, amenities, and hosts are genuine.
+                {t('home.step3Desc')}
               </p>
             </div>
           </div>
@@ -947,49 +935,30 @@ export default function Home() {
               <div className='lg:col-span-7 space-y-6'>
                 <div className='inline-flex items-center gap-2 px-3 py-1 rounded-full bg-neutral-800 text-amber-300 text-xs font-medium'>
                   <FaPlaneDeparture className='text-xs' />
-                  <span>VIP Airport Transfers &amp; Chauffeur Fleet</span>
+                  <span>{t('home.vipAirportTitle')}</span>
                 </div>
 
                 <h2 className='text-3xl sm:text-4xl lg:text-5xl font-medium tracking-tight text-white leading-tight'>
-                  Executive Airport Transfers &amp; Private Mobility
+                  {t('home.vipAirportHeading')}
                 </h2>
 
                 <p className='text-neutral-300 text-xs sm:text-sm leading-relaxed max-w-xl'>
-                  Arrive with complete peace of mind. Our verified private chauffeurs track your flight in real time, provide terminal meet-and-greets with personalized luggage assistance, and ensure smooth travel in pristine city sedans or executive 4x4 SUVs.
+                  {t('home.vipAirportDesc')}
                 </p>
-
-                <div className='grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 text-xs text-neutral-300'>
-                  <div className='flex items-center gap-2.5'>
-                    <FaCheckCircle className='text-emerald-400 shrink-0' />
-                    <span>Flight arrival monitoring &amp; zero delay penalty</span>
-                  </div>
-                  <div className='flex items-center gap-2.5'>
-                    <FaCheckCircle className='text-emerald-400 shrink-0' />
-                    <span>Multilingual professional chauffeurs</span>
-                  </div>
-                  <div className='flex items-center gap-2.5'>
-                    <FaCheckCircle className='text-emerald-400 shrink-0' />
-                    <span>Fixed, transparent daily &amp; weekly rates</span>
-                  </div>
-                  <div className='flex items-center gap-2.5'>
-                    <FaCheckCircle className='text-emerald-400 shrink-0' />
-                    <span>Clean executive sedans &amp; Land Cruiser SUVs</span>
-                  </div>
-                </div>
 
                 <div className='pt-4 flex flex-wrap items-center gap-4'>
                   <Link
                     to='/search?type=car'
                     className='px-6 py-3 bg-black text-white hover:bg-neutral-800 rounded-xl text-xs font-bold transition inline-flex items-center gap-2 shadow-md border border-neutral-700'
                   >
-                    <span>Reserve a Chauffeur Vehicle</span>
+                    <span>{t('home.reserveChauffeur')}</span>
                     <FaArrowRight className='text-[10px]' />
                   </Link>
                   <Link
                     to='/contact'
                     className='px-6 py-3 bg-black hover:bg-neutral-800 text-white rounded-xl text-xs font-bold transition border border-neutral-700 shadow-md'
                   >
-                    Custom Itinerary Request
+                    {t('home.customItinerary')}
                   </Link>
                 </div>
               </div>
@@ -1007,9 +976,9 @@ export default function Home() {
                   <div className='absolute bottom-3 left-3 right-3 p-3 bg-neutral-950/80 backdrop-blur-md rounded-xl border border-neutral-700 text-xs flex items-center justify-between'>
                     <div className='flex items-center gap-2'>
                       <span className='w-2 h-2 rounded-full bg-emerald-400 animate-pulse' />
-                      <span className='text-white font-medium'>24/7 Airport Concierge</span>
+                      <span className='text-white font-medium'>{t('home.airportConcierge')}</span>
                     </div>
-                    <span className='text-neutral-400 text-[11px]'>Door-to-door service</span>
+                    <span className='text-neutral-400 text-[11px]'>{t('home.doorToDoor')}</span>
                   </div>
                 </div>
               </div>
@@ -1035,28 +1004,13 @@ export default function Home() {
               </div>
 
               <div className='lg:col-span-7 order-1 lg:order-2 space-y-5'>
-                <span className='text-xs uppercase tracking-wider text-neutral-400 font-semibold'>Partner with chento 100</span>
+                <span className='text-xs uppercase tracking-wider text-neutral-400 font-semibold'>{t('home.hostEarnTitle')}</span>
                 <h2 className='text-3xl sm:text-4xl font-medium tracking-tight text-neutral-900 leading-tight'>
-                  Earn with Your Guest House or Private Vehicle
+                  {t('home.hostEarnHeading')}
                 </h2>
                 <p className='text-xs sm:text-sm text-neutral-600 leading-relaxed'>
-                  Whether you own a furnished city studio, a family guest villa, or operate a chauffeured vehicle fleet, chento 100 connects you with qualified local and diaspora travelers. Our administration validates listings while you maintain complete control over direct customer bookings.
+                  {t('home.hostEarnDesc')}
                 </p>
-
-                <div className='space-y-2.5 pt-1 text-xs text-neutral-700'>
-                  <div className='flex items-center gap-2.5'>
-                    <FaCheckCircle className='text-neutral-900 shrink-0' />
-                    <span>Direct guest communication via phone or WhatsApp — zero platform commissions</span>
-                  </div>
-                  <div className='flex items-center gap-2.5'>
-                    <FaCheckCircle className='text-neutral-900 shrink-0' />
-                    <span>Swift 24-hour administration review and live listing publication</span>
-                  </div>
-                  <div className='flex items-center gap-2.5'>
-                    <FaCheckCircle className='text-neutral-900 shrink-0' />
-                    <span>Manage availability, prices, and high-resolution photo galleries easily</span>
-                  </div>
-                </div>
 
                 <div className='pt-3'>
                   <Link
@@ -1064,7 +1018,7 @@ export default function Home() {
                     className='inline-flex items-center gap-2 px-6 py-3 bg-black hover:bg-neutral-800 text-white rounded-xl text-xs font-bold transition shadow-md'
                   >
                     <FaPlus className='text-xs' />
-                    <span>Partner with Us — Open Host Portal →</span>
+                    <span>{t('home.openHostPortal')}</span>
                   </Link>
                 </div>
               </div>
@@ -1076,12 +1030,12 @@ export default function Home() {
         <section className='border-t border-neutral-200 pt-16 space-y-10'>
           <div className='flex flex-col sm:flex-row sm:items-end justify-between gap-4'>
             <div>
-              <span className='text-xs uppercase tracking-wider text-neutral-400 font-semibold'>Verified Experiences</span>
+              <span className='text-xs uppercase tracking-wider text-neutral-400 font-semibold'>{t('home.verifiedExperiences')}</span>
               <h2 className='text-3xl sm:text-4xl font-medium tracking-tight text-neutral-900 mt-1'>
-                Trusted by Travelers &amp; Families
+                {t('home.trustedReviewsTitle')}
               </h2>
               <p className='text-xs text-neutral-500 mt-1'>
-                Real feedback from diaspora visitors, business executives, and international travelers
+                {t('home.trustedReviewsSub')}
               </p>
             </div>
             <div className='text-xs text-neutral-500 flex items-center gap-1.5'>
@@ -1089,7 +1043,7 @@ export default function Home() {
                 <FaStar /><FaStar /><FaStar /><FaStar /><FaStar />
               </div>
               <span className='font-semibold text-neutral-900 ml-1'>4.9 / 5.0</span>
-              <span>· Verified Stays</span>
+              <span>· {language === 'ti' ? 'ዝተረጋገጹ ጻንሒታት' : 'Verified Stays'}</span>
             </div>
           </div>
 
@@ -1101,7 +1055,9 @@ export default function Home() {
                   <FaStar /><FaStar /><FaStar /><FaStar /><FaStar />
                 </div>
                 <p className='text-xs text-neutral-700 leading-relaxed italic'>
-                  &ldquo;Finding a reliable 3-bedroom guest house in Asmara with 24/7 backup power and fast Wi-Fi for my family used to take days of calling around. On chento 100, we contacted the host directly and the villa was immaculate.&rdquo;
+                  {language === 'ti'
+                    ? '“ኣብ ሙየንጋ 24/7 ኤሌክትሪክን ቅልጡፍ ዋይፋይን ዘለዎ ናይ ኣጋይሽ ገዛ ምርካብ ኣዝዩ ኣጸጋሚ ነይሩ። ኣብ ቸንቶ 100 ግን ብቐጥታ ምስቲ ዋና ብምዝርራብ ኣዝዩ ጽሩይን ምቹእን ገዛ ረኺብና።”'
+                    : '“Finding a reliable 3-bedroom guest house in Muyenga with 24/7 backup power and fast Wi-Fi for my family used to take days of calling around. On chento 100, we contacted the host directly and the villa was immaculate.”'}
                 </p>
               </div>
               <div className='pt-4 border-t border-neutral-100 flex items-center gap-3'>
@@ -1122,7 +1078,9 @@ export default function Home() {
                   <FaStar /><FaStar /><FaStar /><FaStar /><FaStar />
                 </div>
                 <p className='text-xs text-neutral-700 leading-relaxed italic'>
-                  &ldquo;I booked an executive Prado with chauffeur for an 8-day corporate mission. Marcus Vance was waiting at airport arrivals with our name board. Punctual, discreet, and navigated city meetings effortlessly.&rdquo;
+                  {language === 'ti'
+                    ? '“ን 8 መዓልቲ ናይ ስራሕ ጉዕዞ ፕራዶ ምስ መራሒ ኣሲዘ ነይረ። እቲ መራሒ ኣብ መዕረፎ ነፈርቲ ብስመይ ሰሌዳ ሒዙ ይጽበየና ነይሩ። ሰዓቱ ዝሓልውን ፍጹም ህዱእን እዩ ነይሩ።”'
+                    : '“I booked an executive Prado with chauffeur for an 8-day corporate mission. The driver was waiting at airport arrivals with our name board. Punctual, discreet, and navigated city meetings effortlessly.”'}
                 </p>
               </div>
               <div className='pt-4 border-t border-neutral-100 flex items-center gap-3'>
@@ -1143,7 +1101,9 @@ export default function Home() {
                   <FaStar /><FaStar /><FaStar /><FaStar /><FaStar />
                 </div>
                 <p className='text-xs text-neutral-700 leading-relaxed italic'>
-                  &ldquo;The pre-moderation gives you real reassurance. Knowing that administration checks every property before it is posted meant zero unpleasant surprises. Will definitely book through chento 100 again.&rdquo;
+                  {language === 'ti'
+                    ? '“እቲ ናይ ኣመሓደርቲ ቅድመ-ምጽራይ ዓቢ እምነት ፈጢሩልና። ነፍሲ ወከፍ ገዛ ተፈቲሹ ዝወጽእ ምዃኑ ምፍላጥ ካብ ዘየድሊ ምድንጋር ኣድሒኑና። ብርግጽ እንደገና ክንጥቀመሉ ኢና።”'
+                    : '“The pre-moderation gives you real reassurance. Knowing that administration checks every property before it is posted meant zero unpleasant surprises. Will definitely book through chento 100 again.”'}
                 </p>
               </div>
               <div className='pt-4 border-t border-neutral-100 flex items-center gap-3'>
@@ -1157,63 +1117,67 @@ export default function Home() {
               </div>
             </div>
           </div>
-
-          {/* Quantitative Proof Metric Ribbon */}
-          <div className='p-6 bg-neutral-50 border border-neutral-200 rounded-2xl grid grid-cols-2 sm:grid-cols-4 gap-4 text-center'>
-            <div>
-              <div className='text-xl sm:text-2xl font-bold text-neutral-900'>4.9 / 5</div>
-              <div className='text-[11px] text-neutral-500 mt-0.5'>Average Guest Rating</div>
-            </div>
-            <div>
-              <div className='text-xl sm:text-2xl font-bold text-neutral-900'>100%</div>
-              <div className='text-[11px] text-neutral-500 mt-0.5'>Admin Pre-moderated</div>
-            </div>
-            <div>
-              <div className='text-xl sm:text-2xl font-bold text-neutral-900'>&lt; 24h</div>
-              <div className='text-[11px] text-neutral-500 mt-0.5'>Listing Review Turnaround</div>
-            </div>
-            <div>
-              <div className='text-xl sm:text-2xl font-bold text-neutral-900'>0%</div>
-              <div className='text-[11px] text-neutral-500 mt-0.5'>Broker Commission Cut</div>
-            </div>
-          </div>
         </section>
 
         {/* Section 8: Frequently Asked Questions (Interactive Accordion) */}
         <section className='border-t border-neutral-200 pt-16 space-y-8'>
           <div className='max-w-2xl'>
-            <span className='text-xs uppercase tracking-wider text-neutral-400 font-semibold'>Clarifications &amp; Help</span>
+            <span className='text-xs uppercase tracking-wider text-neutral-400 font-semibold'>{t('home.clarificationsHelp')}</span>
             <h2 className='text-3xl sm:text-4xl font-medium tracking-tight text-neutral-900 mt-1'>
-              Frequently Asked Questions
+              {t('home.faqsTitle')}
             </h2>
             <p className='text-xs sm:text-sm text-neutral-500 mt-2 leading-relaxed'>
-              Clear answers to common questions about booking stays, reserving chauffeurs, and host terms.
+              {t('home.faqsSub')}
             </p>
           </div>
 
           <div className='space-y-3 max-w-4xl'>
-            {[
-              {
-                q: 'How does booking a private car with driver work?',
-                a: 'Browse the car leasing section, choose the vehicle that fits your party size and itinerary, and click to view listing details. You can call, message via WhatsApp, or send an instant inquiry directly to the driver or fleet manager. Confirm pickup dates, itinerary, and whether fuel is included.',
-              },
-              {
-                q: 'Are the guest houses and vehicles verified before being listed?',
-                a: 'Yes. Every single listing submitted to chento 100 is manually reviewed by our administrative moderation team. We verify that photos represent real properties, amenities match descriptions, and hosts provide valid contact details.',
-              },
-              {
-                q: 'How do payments work between guests and hosts?',
-                a: 'chento 100 facilitates transparent, direct connections between guests and verified hosts or chauffeurs. You pay the host directly upon check-in or via mutually agreed payment methods (cash, local transfer, or international wire) without hidden platform surcharges.',
-              },
-              {
-                q: 'Can I arrange an airport transfer before landing in Asmara?',
-                a: 'Yes! Simply select a vehicle with chauffeur, contact the driver with your flight details (airline and arrival time), and request terminal pickup. The driver will be stationed in the arrival hall holding a personalized name board.',
-              },
-              {
-                q: 'How do I list my guest house or chauffeur vehicle on chento 100?',
-                a: "Click 'List Your Property / Vehicle' in the top navigation or footer. Complete the listing form with photos, pricing, and amenities. Our administrators review the submission within 24 hours and publish it to the live marketplace.",
-              },
-            ].map((faq, idx) => {
+            {(language === 'ti'
+              ? [
+                  {
+                    q: 'መኪና ምስ መራሒ ብኸመይ ይተሓዝ?',
+                    a: 'ናብ ክፍሊ ናይ መኪና ክራይ ብምኻድ ንዓኻ እትጥዕም መኪና ምረጽ። ብቐጥታ ብስልኪ፣ ዋትስኣፕ ወይ ብኢመይል ምስቲ መራሒ ተራኺብካ መዓልታትን ዋጋን ተሰማማዕ።',
+                  },
+                  {
+                    q: 'እቶም ናይ ኣጋይሽ ኣባይትን መካይንን ዝተረጋገጹ ድዮም?',
+                    a: 'እወ! ነፍሲ ወከፍ ዝርዝር ቅድሚ ምውጽኡ ብኣመሓደርትና ጽሬቱ፣ ስእልታቱን ናይ ዋና መንነትን ብጥንቃቐ ይረጋገጽ።',
+                  },
+                  {
+                    q: 'ናይ ክፍሊት መስርሕ ከመይ እዩ ዝሰርሕ?',
+                    a: 'ኣብ መንጎኻን ኣብ መንጎ ዋናን ቀጥታዊ ርክብ ስለዝኾነ፡ ኣብቲ ቦታ ምስ በጻሕካ ብጥረ ገንዘብ ወይ ብዝተሰማማዕኩምሉ መንገዲ ብዘይ ምንም ተወሳኺ ክፍሊት ትኸፍል።',
+                  },
+                  {
+                    q: 'ካብ ኤንተበ ናብ ማኪንድየ መጓዕዝያ ክዳሎ ይከኣል ዶ?',
+                    a: 'እወ! መኪና ምስ መራሒ መሪጽካ ናይ ነፋሪትካ ሰዓትን መዕረፎን ጥራይ ንገሮም፤ እቲ መራሒ ኣብ መዕረፎ ነፈርቲ ስምካ ሒዙ ክጽበየካ እዩ።',
+                  },
+                  {
+                    q: 'ናተይ ናይ ኣጋይሽ ገዛ ወይ መኪና ብኸመይ ኣብ ቸንቶ 100 ከስፍር እኽእል?',
+                    a: 'ኣብ ላዕሊ "ምሳና ስራሕ" ብምጥዋቕ ፎርም ብምምላእ ስእልታትን ዋጋን መዝግብ። ኣመሓደርትና ኣብ ውሽጢ 24 ሰዓት መርሚሮም የጽድቑልካ።',
+                  },
+                ]
+              : [
+                  {
+                    q: 'How does booking a private car with driver work?',
+                    a: 'Browse the car leasing section, choose the vehicle that fits your party size and itinerary, and click to view listing details. You can call, message via WhatsApp, or send an instant inquiry directly to the driver or fleet manager. Confirm pickup dates, itinerary, and whether fuel is included.',
+                  },
+                  {
+                    q: 'Are the guest houses and vehicles verified before being listed?',
+                    a: 'Yes. Every single listing submitted to chento 100 is manually reviewed by our administrative moderation team. We verify that photos represent real properties, amenities match descriptions, and hosts provide valid contact details.',
+                  },
+                  {
+                    q: 'How do payments work between guests and hosts?',
+                    a: 'chento 100 facilitates transparent, direct connections between guests and verified hosts or chauffeurs. You pay the host directly upon check-in or via mutually agreed payment methods (cash, local transfer, or international wire) without hidden platform surcharges.',
+                  },
+                  {
+                    q: 'Can I arrange an airport transfer from Entebbe to Makindye?',
+                    a: 'Yes! Simply select a vehicle with chauffeur, contact the driver with your flight details (airline and arrival time), and request Entebbe terminal pickup directly to your Makindye Division destination. The driver will be stationed in the arrival hall holding a personalized name board.',
+                  },
+                  {
+                    q: 'How do I list my guest house or chauffeur vehicle on chento 100?',
+                    a: "Click 'List Your Property / Vehicle' in the top navigation or footer. Complete the listing form with photos, pricing, and amenities. Our administrators review the submission within 24 hours and publish it to the live marketplace.",
+                  },
+                ]
+            ).map((faq, idx) => {
               const isOpen = openFaq === idx;
               return (
                 <div
@@ -1249,10 +1213,10 @@ export default function Home() {
           <div className='p-8 sm:p-12 bg-neutral-900 text-white rounded-3xl flex flex-col md:flex-row items-start md:items-center justify-between gap-8'>
             <div className='space-y-2 max-w-xl'>
               <h3 className='text-2xl sm:text-3xl font-medium tracking-tight text-white'>
-                Need Personalized Travel or Long-Term Stay Assistance?
+                {t('home.conciergeTitle')}
               </h3>
               <p className='text-xs sm:text-sm text-neutral-300 leading-relaxed'>
-                Our dedicated concierge desk coordinates long-term corporate guest house rentals, multi-vehicle convoys for diplomatic delegations, and custom cross-country travel itineraries.
+                {t('home.conciergeDesc')}
               </p>
             </div>
             <div className='flex flex-wrap items-center gap-3 shrink-0'>
@@ -1260,13 +1224,13 @@ export default function Home() {
                 to='/contact'
                 className='px-5 py-2.5 bg-black text-white hover:bg-neutral-800 rounded-xl text-xs font-bold transition border border-neutral-700 shadow-md'
               >
-                Contact Concierge Desk
+                {t('home.contactConcierge')}
               </Link>
               <Link
                 to='/search'
                 className='px-5 py-2.5 bg-black hover:bg-neutral-800 text-white border border-neutral-700 rounded-xl text-xs font-bold transition shadow-md'
               >
-                Browse Marketplace
+                {t('home.browseMarketplace')}
               </Link>
             </div>
           </div>

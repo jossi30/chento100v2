@@ -7,9 +7,9 @@ export function LanguageProvider({ children }) {
   const [language, setLanguage] = useState(() => {
     try {
       const saved = localStorage.getItem('chento_language');
-      return saved === 'ti' ? 'ti' : 'en';
+      return saved === 'en' ? 'en' : 'ti';
     } catch {
-      return 'en';
+      return 'ti';
     }
   });
 

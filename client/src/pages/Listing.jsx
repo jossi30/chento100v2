@@ -111,7 +111,7 @@ export default function Listing() {
     return (
       <div className='min-h-[70vh] flex flex-col items-center justify-center space-y-4'>
         <div className='w-10 h-10 border-4 border-amber-500 border-t-transparent rounded-full animate-spin' />
-        <p className='text-xs text-slate-500 font-medium'>Loading listing details...</p>
+        <p className='text-xs text-slate-500 font-medium'>{t('listing.loadingDetails')}</p>
       </div>
     );
   }
@@ -122,13 +122,13 @@ export default function Listing() {
         <div className='w-14 h-14 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center text-2xl'>
           <FaShieldAlt />
         </div>
-        <h2 className='text-xl font-bold text-slate-900'>Listing Unavailable</h2>
-        <p className='text-xs text-slate-600 max-w-md'>{error || 'This listing cannot be displayed.'}</p>
+        <h2 className='text-xl font-bold text-slate-900'>{t('listing.unavailableTitle')}</h2>
+        <p className='text-xs text-slate-600 max-w-md'>{error || t('listing.unavailableDesc')}</p>
         <Link
           to='/search'
           className='px-5 py-2.5 bg-slate-900 text-white font-bold rounded-lg text-xs hover:bg-slate-800 transition'
         >
-          Browse Approved Listings
+          {t('listing.browseApprovedBtn')}
         </Link>
       </div>
     );
@@ -158,7 +158,7 @@ export default function Listing() {
           className='inline-flex items-center gap-2 text-xs font-semibold text-slate-600 hover:text-slate-900 py-1 transition cursor-pointer'
         >
           <FaArrowLeft />
-          <span>Back</span>
+          <span>{t('listing.back')}</span>
         </button>
 
         <div className='flex items-center gap-2'>
@@ -167,7 +167,7 @@ export default function Listing() {
             className='inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition cursor-pointer shadow-2xs'
           >
             <FaShareAlt className='text-slate-500' />
-            <span>{copied ? 'Link Copied!' : 'Share'}</span>
+            <span>{copied ? t('listing.linkCopied') : t('listing.share')}</span>
           </button>
 
           <button
@@ -175,7 +175,7 @@ export default function Listing() {
             className='inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-rose-50 text-slate-500 hover:text-rose-600 text-xs font-medium transition cursor-pointer'
           >
             <FaFlag className='text-xs' />
-            <span>Report</span>
+            <span>{t('listing.report')}</span>
           </button>
         </div>
       </div>
@@ -245,15 +245,15 @@ export default function Listing() {
           <div className='space-y-2 border-b border-slate-200 pb-5'>
             <div className='flex items-center gap-2 flex-wrap'>
               <span className='px-3 py-1 bg-slate-900 text-white text-xs font-bold rounded-full uppercase tracking-wider'>
-                {isGuestHouse ? 'Guest House Rental' : 'Car Leasing & Chauffeur'}
+                {isGuestHouse ? t('listing.guestHouseRental') : t('listing.carLeasingChauffeur')}
               </span>
               {listing.featured && (
                 <span className='px-2.5 py-1 bg-amber-400 text-slate-950 text-xs font-extrabold rounded-full'>
-                  ★ Featured
+                  ★ {t('listing.featured')}
                 </span>
               )}
               <span className='text-xs text-slate-400 flex items-center gap-1 ml-auto'>
-                <FaEye /> {listing.viewCount || 1} views
+                <FaEye /> {listing.viewCount || 1} {t('listing.views')}
               </span>
             </div>
 
@@ -273,22 +273,22 @@ export default function Listing() {
               <>
                 <div className='p-2'>
                   <FaBed className='text-slate-400 mx-auto text-lg mb-1' />
-                  <span className='text-xs text-slate-500 block font-medium'>Bedrooms</span>
-                  <span className='text-sm font-bold text-slate-900'>{listing.bedrooms || 1} Rooms</span>
+                  <span className='text-xs text-slate-500 block font-medium'>{t('listing.bedroomsTitle')}</span>
+                  <span className='text-sm font-bold text-slate-900'>{listing.bedrooms || 1} {t('listing.roomsUnit')}</span>
                 </div>
                 <div className='p-2'>
                   <FaBath className='text-slate-400 mx-auto text-lg mb-1' />
-                  <span className='text-xs text-slate-500 block font-medium'>Bathrooms</span>
-                  <span className='text-sm font-bold text-slate-900'>{listing.bathrooms || 1} Baths</span>
+                  <span className='text-xs text-slate-500 block font-medium'>{t('listing.bathroomsTitle')}</span>
+                  <span className='text-sm font-bold text-slate-900'>{listing.bathrooms || 1} {t('listing.bathsUnit')}</span>
                 </div>
                 <div className='p-2'>
                   <FaUserFriends className='text-slate-400 mx-auto text-lg mb-1' />
-                  <span className='text-xs text-slate-500 block font-medium'>Max Capacity</span>
-                  <span className='text-sm font-bold text-slate-900'>{listing.maxGuests || 2} Guests</span>
+                  <span className='text-xs text-slate-500 block font-medium'>{t('listing.maxCapacityTitle')}</span>
+                  <span className='text-sm font-bold text-slate-900'>{listing.maxGuests || 2} {t('listing.guestsUnit')}</span>
                 </div>
                 <div className='p-2'>
                   <FaClock className='text-slate-400 mx-auto text-lg mb-1' />
-                  <span className='text-xs text-slate-500 block font-medium'>Check-In / Out</span>
+                  <span className='text-xs text-slate-500 block font-medium'>{t('listing.checkInOutTitle')}</span>
                   <span className='text-sm font-bold text-slate-900'>
                     {listing.checkIn || '14:00'} / {listing.checkOut || '11:00'}
                   </span>
@@ -298,26 +298,26 @@ export default function Listing() {
               <>
                 <div className='p-2'>
                   <FaCar className='text-slate-400 mx-auto text-lg mb-1' />
-                  <span className='text-xs text-slate-500 block font-medium'>Make / Model</span>
+                  <span className='text-xs text-slate-500 block font-medium'>{t('listing.makeModelTitle')}</span>
                   <span className='text-sm font-bold text-slate-900'>
                     {listing.make || ''} {listing.model || 'Sedan'}
                   </span>
                 </div>
                 <div className='p-2'>
                   <FaUserFriends className='text-slate-400 mx-auto text-lg mb-1' />
-                  <span className='text-xs text-slate-500 block font-medium'>Seats</span>
-                  <span className='text-sm font-bold text-slate-900'>{listing.seats || 4} Passengers</span>
+                  <span className='text-xs text-slate-500 block font-medium'>{t('listing.seatsTitle')}</span>
+                  <span className='text-sm font-bold text-slate-900'>{listing.seats || 4} {t('listing.passengersUnit')}</span>
                 </div>
                 <div className='p-2'>
                   <FaCogs className='text-slate-400 mx-auto text-lg mb-1' />
-                  <span className='text-xs text-slate-500 block font-medium'>Transmission</span>
+                  <span className='text-xs text-slate-500 block font-medium'>{t('listing.transmissionTitle')}</span>
                   <span className='text-sm font-bold text-slate-900 capitalize'>{listing.transmission || 'Automatic'}</span>
                 </div>
                 <div className='p-2'>
                   <FaShieldAlt className='text-slate-400 mx-auto text-lg mb-1' />
-                  <span className='text-xs text-slate-500 block font-medium'>Chauffeur</span>
+                  <span className='text-xs text-slate-500 block font-medium'>{t('listing.chauffeurTitle')}</span>
                   <span className='text-sm font-bold text-emerald-600'>
-                    {listing.driverIncluded ? 'Included' : 'Self-Drive'}
+                    {listing.driverIncluded ? t('listing.includedStatus') : t('listing.selfDrive')}
                   </span>
                 </div>
               </>
@@ -326,7 +326,7 @@ export default function Listing() {
 
           {/* Description Section */}
           <div className='space-y-3'>
-            <h2 className='text-lg font-bold text-slate-900'>About this {isGuestHouse ? 'Guest House' : 'Vehicle'}</h2>
+            <h2 className='text-lg font-bold text-slate-900'>{isGuestHouse ? t('listing.aboutGuestHouse') : t('listing.aboutVehicle')}</h2>
             <div className='text-sm text-slate-700 leading-relaxed whitespace-pre-line'>
               {listing.description}
             </div>
@@ -335,7 +335,7 @@ export default function Listing() {
           {/* Guest House Amenities */}
           {isGuestHouse && Array.isArray(listing.amenities) && listing.amenities.length > 0 && (
             <div className='space-y-3 pt-4 border-t border-slate-200'>
-              <h2 className='text-lg font-bold text-slate-900'>Included Amenities</h2>
+              <h2 className='text-lg font-bold text-slate-900'>{t('listing.includedAmenities')}</h2>
               <div className='grid grid-cols-2 sm:grid-cols-3 gap-2.5'>
                 {listing.amenities.map((amenity, i) => (
                   <div key={i} className='flex items-center gap-2 p-2.5 bg-slate-50 rounded-xl text-xs font-semibold text-slate-800 border border-slate-200/60'>
@@ -350,7 +350,7 @@ export default function Listing() {
           {/* House Rules or Lease Guidelines */}
           {isGuestHouse && listing.houseRules && (
             <div className='space-y-2 pt-4 border-t border-slate-200'>
-              <h2 className='text-lg font-bold text-slate-900'>House Rules</h2>
+              <h2 className='text-lg font-bold text-slate-900'>{t('listing.houseRules')}</h2>
               <p className='text-xs sm:text-sm text-slate-600 leading-relaxed bg-amber-50/50 p-4 rounded-2xl border border-amber-200/60'>
                 {listing.houseRules}
               </p>
@@ -360,24 +360,24 @@ export default function Listing() {
           {/* Car Lease Specifications */}
           {!isGuestHouse && (
             <div className='space-y-3 pt-4 border-t border-slate-200'>
-              <h2 className='text-lg font-bold text-slate-900'>Leasing Terms &amp; Conditions</h2>
+              <h2 className='text-lg font-bold text-slate-900'>{t('listing.leasingTerms')}</h2>
               <div className='grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs'>
                 <div className='p-3 bg-slate-50 rounded-xl border border-slate-200'>
-                  <span className='text-slate-400 block'>Mileage Allowance</span>
+                  <span className='text-slate-400 block'>{t('listing.mileageAllowance')}</span>
                   <span className='font-bold text-slate-800'>{listing.mileageLimit || '200 km / day'}</span>
                 </div>
                 <div className='p-3 bg-slate-50 rounded-xl border border-slate-200'>
-                  <span className='text-slate-400 block'>Security Deposit</span>
+                  <span className='text-slate-400 block'>{t('listing.securityDeposit')}</span>
                   <span className='font-bold text-slate-800'>
-                    {listing.deposit ? `$${listing.deposit}` : 'No deposit required'}
+                    {listing.deposit ? `$${listing.deposit}` : t('listing.noDepositRequired')}
                   </span>
                 </div>
                 <div className='p-3 bg-slate-50 rounded-xl border border-slate-200'>
-                  <span className='text-slate-400 block'>Min Lease Term</span>
+                  <span className='text-slate-400 block'>{t('listing.minLeaseTerm')}</span>
                   <span className='font-bold text-slate-800'>{listing.minLeaseTerm || '1 day'}</span>
                 </div>
                 <div className='p-3 bg-slate-50 rounded-xl border border-slate-200'>
-                  <span className='text-slate-400 block'>Fuel Type</span>
+                  <span className='text-slate-400 block'>{t('listing.fuelType')}</span>
                   <span className='font-bold text-slate-800'>{listing.fuel || 'Petrol'}</span>
                 </div>
               </div>
@@ -409,7 +409,7 @@ export default function Listing() {
 
             {/* Price Header */}
             <div className='border-b border-slate-100 pb-4 space-y-2'>
-              <span className='text-xs text-slate-400 font-semibold uppercase tracking-wider block'>Rate &amp; Availability</span>
+              <span className='text-xs text-slate-400 font-semibold uppercase tracking-wider block'>{t('listing.rateAvailability')}</span>
               <div className='flex items-baseline gap-1 mt-1'>
                 <span className='text-3xl font-black text-slate-900'>
                   {currency === 'USD' ? '$' : `${currency} `}
@@ -423,12 +423,12 @@ export default function Listing() {
                 {listing.isAvailable !== false && listing.available !== false ? (
                   <div className='inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800'>
                     <span className='w-2 h-2 rounded-full bg-emerald-500 animate-pulse'></span>
-                    <span>🟢 Available for Booking</span>
+                    <span>{t('listing.availableForBooking')}</span>
                   </div>
                 ) : (
                   <div className='inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800'>
                     <span className='w-2 h-2 rounded-full bg-rose-500'></span>
-                    <span>🔴 Currently Booked / Unavailable</span>
+                    <span>{t('listing.currentlyBooked')}</span>
                     {listing.availabilityNotes && (
                       <span className='text-[10px] text-rose-600 block mt-0.5 font-normal'>
                         ({listing.availabilityNotes})
@@ -442,7 +442,7 @@ export default function Listing() {
             {/* Direct Contact Buttons */}
             <div className='space-y-2.5'>
               <span className='text-xs font-bold text-slate-700 uppercase tracking-wider block'>
-                Contact Host / Chauffeur
+                {t('listing.contactHostOrDriver')}
               </span>
 
               {/* WhatsApp Direct Link */}
@@ -456,7 +456,7 @@ export default function Listing() {
                   className='w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md transition'
                 >
                   <FaWhatsapp className='text-base' />
-                  <span>Chat on WhatsApp</span>
+                  <span>{t('listing.chatWhatsApp')}</span>
                 </a>
               )}
 
@@ -467,7 +467,7 @@ export default function Listing() {
                   className='w-full py-3 px-4 bg-black hover:bg-neutral-800 text-white font-bold rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md transition'
                 >
                   <FaPhoneAlt className='text-xs' />
-                  <span>Call {listing.contactPhone}</span>
+                  <span>{t('listing.callPhone')} {listing.contactPhone}</span>
                 </a>
               )}
 
@@ -481,7 +481,7 @@ export default function Listing() {
                 className='w-full py-3 px-4 bg-black hover:bg-neutral-800 text-white font-bold rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 transition border border-neutral-700 shadow-md'
               >
                 <FaEnvelope className='text-xs' />
-                <span>Send Email Inquiry</span>
+                <span>{t('listing.sendEmailInquiry')}</span>
               </a>
 
               {/* Share Listing Button */}
@@ -501,14 +501,14 @@ export default function Listing() {
                 }}
                 className='w-full py-2.5 px-4 bg-black hover:bg-neutral-800 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition border border-neutral-700 shadow-xs cursor-pointer'
               >
-                <span>Share Listing Link</span>
+                <span>{t('listing.shareListingLink')}</span>
               </button>
             </div>
 
             {/* Safety badge */}
             <div className='pt-2 border-t border-slate-100 text-[11px] text-slate-500 leading-relaxed flex items-center gap-2'>
               <FaShieldAlt className='text-amber-500 text-base shrink-0' />
-              <span>Direct verification: All host profiles &amp; contact channels are reviewed before publication.</span>
+              <span>{t('listing.verificationNote')}</span>
             </div>
           </div>
         </div>
@@ -526,15 +526,15 @@ export default function Listing() {
           >
             <div className='flex items-center gap-2 text-rose-600'>
               <FaFlag />
-              <h3 className='font-bold text-base text-slate-900'>Report This Listing</h3>
+              <h3 className='font-bold text-base text-slate-900'>{t('listing.reportThisListing')}</h3>
             </div>
             <p className='text-xs text-slate-600 leading-relaxed'>
-              Help us maintain marketplace standards. Please describe the violation (misleading photos, incorrect pricing, invalid contact, etc.).
+              {t('listing.reportInstructions')}
             </p>
 
             {reportSuccess ? (
               <div className='p-4 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-semibold text-center'>
-                Thank you. Your report has been submitted to the moderation team.
+                {t('listing.reportSubmitted')}
               </div>
             ) : (
               <form onSubmit={handleReportSubmit} className='space-y-4'>
@@ -543,7 +543,7 @@ export default function Listing() {
                   required
                   value={reportReason}
                   onChange={(e) => setReportReason(e.target.value)}
-                  placeholder='Explain the reason for reporting this listing...'
+                  placeholder={t('listing.reportReasonPlaceholder')}
                   className='w-full p-3 text-xs border border-slate-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-slate-900'
                 />
                 <div className='flex justify-end gap-2'>
@@ -552,14 +552,14 @@ export default function Listing() {
                     onClick={() => setReportModalOpen(false)}
                     className='px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 rounded-lg'
                   >
-                    Cancel
+                    {t('listing.cancel')}
                   </button>
                   <button
                     type='submit'
                     disabled={reporting}
                     className='px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-lg transition disabled:opacity-50'
                   >
-                    {reporting ? 'Submitting...' : 'Submit Report'}
+                    {reporting ? t('listing.submitting') : t('listing.submitReport')}
                   </button>
                 </div>
               </form>

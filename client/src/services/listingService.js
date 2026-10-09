@@ -50,8 +50,8 @@ export function normalizeClientListing(data, id) {
   const price = Number(data.price !== undefined ? data.price : (data.regularPrice || 0));
   const regularPrice = Number(data.regularPrice !== undefined ? data.regularPrice : price);
   const discountPrice = Number(data.discountPrice || data.discountedPrice || 0);
-  const location = data.location || data.address || 'City Center';
-  const city = data.city || location.split(',')[0].trim() || 'City Center';
+  const location = data.location || data.address || 'Makindye Division, Kampala';
+  const city = data.city || location.split(',')[0].trim() || 'Makindye';
   const area = data.area || '';
   const address = data.address || location;
 
@@ -207,12 +207,16 @@ export async function getApprovedListings({
     }
 
     if (city && city.trim()) {
-      const c = city.toLowerCase().trim();
-      const inCity = data.city && data.city.toLowerCase().includes(c);
-      const inLoc = data.location && data.location.toLowerCase().includes(c);
-      const inAddr = data.address && data.address.toLowerCase().includes(c);
+      let c = city.toLowerCase().trim();
+      // Handle spelling variations for Makindye / Makinde
+      if (c === 'makinde') c = 'makindye';
+      const inCity = data.city && (data.city.toLowerCase().includes(c) || (c === 'makindye' && data.city.toLowerCase().includes('makinde')));
+      const inLoc = data.location && (data.location.toLowerCase().includes(c) || (c === 'makindye' && data.location.toLowerCase().includes('makinde')));
+      const inAddr = data.address && (data.address.toLowerCase().includes(c) || (c === 'makindye' && data.address.toLowerCase().includes('makinde')));
+      const inArea = data.area && data.area.toLowerCase().includes(c);
       const inTitle = data.title && data.title.toLowerCase().includes(c);
-      if (!inCity && !inLoc && !inAddr && !inTitle) return false;
+      const inDesc = data.description && data.description.toLowerCase().includes(c);
+      if (!inCity && !inLoc && !inAddr && !inArea && !inTitle && !inDesc) return false;
     }
 
     if (minPrice !== null && minPrice !== undefined && Number(data.price) < Number(minPrice)) {
@@ -467,8 +471,16 @@ export async function createListing(listingData, user) {
     area: listingData.area?.trim() || '',
     address: listingData.address?.trim() || listingData.city || '',
     location: listingData.location || listingData.address || listingData.city || '',
-    images: Array.isArray(listingData.images) ? listingData.images.slice(0, 8) : [],
-    imageUrls: Array.isArray(listingData.images) ? listingData.images.slice(0, 8) : [],
+    images: (Array.isArray(listingData.imageUrls) && listingData.imageUrls.length > 0
+      ? listingData.imageUrls
+      : Array.isArray(listingData.images)
+      ? listingData.images
+      : []).slice(0, 10),
+    imageUrls: (Array.isArray(listingData.imageUrls) && listingData.imageUrls.length > 0
+      ? listingData.imageUrls
+      : Array.isArray(listingData.images)
+      ? listingData.images
+      : []).slice(0, 10),
     ownerId: user.uid,
     userRef: user.uid,
     ownerEmail: user.email || '',

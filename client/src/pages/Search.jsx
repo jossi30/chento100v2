@@ -171,9 +171,9 @@ export default function Search() {
       {/* Top Header & Mobile Filter Trigger */}
       <div className='flex flex-wrap items-center justify-between gap-4 pb-6 border-b border-slate-200 mb-6'>
         <div>
-          <h1 className='text-2xl sm:text-3xl font-extrabold text-slate-900'>Browse Listings</h1>
+          <h1 className='text-2xl sm:text-3xl font-extrabold text-slate-900'>{t('search.browseListings')}</h1>
           <p className='text-xs text-slate-500 mt-0.5'>
-            {loading ? 'Searching live marketplace...' : `Showing ${listings.length} approved listing${listings.length === 1 ? '' : 's'}`}
+            {loading ? t('search.searchingLive') : `${t('search.showingApproved')} ${listings.length} ${t('search.approvedListings')}`}
           </p>
         </div>
 
@@ -184,12 +184,12 @@ export default function Search() {
             className='md:hidden inline-flex items-center gap-2 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-lg transition border border-slate-200'
           >
             <FaSlidersH />
-            <span>Filters</span>
+            <span>{t('search.filters')}</span>
           </button>
 
           {/* Sort By Dropdown */}
           <div className='flex items-center gap-2'>
-            <label className='text-xs text-slate-500 hidden sm:inline font-medium'>Sort:</label>
+            <label className='text-xs text-slate-500 hidden sm:inline font-medium'>{t('search.sort')}</label>
             <select
               value={filters.sortBy}
               onChange={(e) => {
@@ -200,9 +200,9 @@ export default function Search() {
               }}
               className='px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg text-slate-800 font-semibold focus:outline-hidden focus:ring-2 focus:ring-slate-900 shadow-2xs'
             >
-              <option value='newest'>Newest Added</option>
-              <option value='price_asc'>Price: Low to High</option>
-              <option value='price_desc'>Price: High to Low</option>
+              <option value='newest'>{t('search.sortNewest')}</option>
+              <option value='price_asc'>{t('search.sortPriceAsc')}</option>
+              <option value='price_desc'>{t('search.sortPriceDesc')}</option>
             </select>
           </div>
         </div>
@@ -218,7 +218,7 @@ export default function Search() {
           <div className='flex items-center justify-between'>
             <h2 className='text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2'>
               <FaFilter className='text-amber-500' />
-              <span>Filters</span>
+              <span>{t('search.filters')}</span>
             </h2>
             <button
               type='button'
@@ -226,14 +226,14 @@ export default function Search() {
               className='text-xs text-amber-600 hover:text-amber-700 font-semibold flex items-center gap-1 cursor-pointer'
             >
               <FaRedo className='text-[10px]' />
-              <span>Reset</span>
+              <span>{t('search.reset')}</span>
             </button>
           </div>
 
           <form onSubmit={applyFilters} className='space-y-5'>
             {/* Category Selector */}
             <div className='space-y-2'>
-              <label className='text-xs font-bold text-slate-700 uppercase'>Category</label>
+              <label className='text-xs font-bold text-slate-700 uppercase'>{t('search.category')}</label>
               <div className='grid grid-cols-3 gap-1 bg-slate-100 p-1 rounded-xl text-xs'>
                 <button
                   type='button'
@@ -244,7 +244,7 @@ export default function Search() {
                       : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
-                  All
+                  {t('search.all')}
                 </button>
                 <button
                   type='button'
@@ -256,7 +256,7 @@ export default function Search() {
                   }`}
                 >
                   <FaHome className='text-amber-500' />
-                  <span>Stays</span>
+                  <span>{t('search.stays')}</span>
                 </button>
                 <button
                   type='button'
@@ -268,36 +268,69 @@ export default function Search() {
                   }`}
                 >
                   <FaCar className='text-amber-500' />
-                  <span>Cars</span>
+                  <span>{t('search.cars')}</span>
                 </button>
               </div>
             </div>
 
-            {/* City / Keyword */}
-            <div className='space-y-1.5'>
-              <label className='text-xs font-bold text-slate-700 uppercase'>Location / City</label>
+            {/* Makindye Neighborhood / Keyword */}
+            <div className='space-y-2'>
+              <label className='text-xs font-bold text-slate-700 uppercase'>
+                {t('search.makindyeNeighborhood')}
+              </label>
               <div className='relative'>
                 <FaSearch className='absolute left-3 top-3 text-slate-400 text-xs' />
                 <input
                   type='text'
                   value={filters.city}
                   onChange={(e) => handleFilterChange('city', e.target.value)}
-                  placeholder='City, area, address...'
-                  className='w-full pl-8 pr-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-hidden focus:ring-1 focus:ring-slate-900'
+                  placeholder={t('search.neighborhoodPlaceholder')}
+                  className='w-full pl-8 pr-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-hidden focus:ring-1 focus:ring-slate-900 bg-white'
                 />
+              </div>
+
+              {/* Quick Neighborhood Tags */}
+              <div className='flex flex-wrap gap-1 pt-1'>
+                {['Muyenga', 'Munyonyo', 'Buziga', 'Ggaba', 'Kansanga', 'Makindye', 'Kabalagala', 'Nsambya'].map((hood) => {
+                  const isSelected = filters.city.toLowerCase() === hood.toLowerCase();
+                  return (
+                    <button
+                      key={hood}
+                      type='button'
+                      onClick={() => {
+                        const nextVal = isSelected ? '' : hood;
+                        handleFilterChange('city', nextVal);
+                        const params = new URLSearchParams(location.search);
+                        if (nextVal) {
+                          params.set('city', nextVal);
+                        } else {
+                          params.delete('city');
+                        }
+                        navigate(`/search?${params.toString()}`);
+                      }}
+                      className={`text-[10px] font-semibold px-2 py-0.5 rounded-md transition cursor-pointer border ${
+                        isSelected
+                          ? 'bg-slate-900 text-white border-slate-900'
+                          : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
+                      }`}
+                    >
+                      {hood}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
             {/* Price Range */}
             <div className='space-y-1.5'>
-              <label className='text-xs font-bold text-slate-700 uppercase'>Price Range ($)</label>
+              <label className='text-xs font-bold text-slate-700 uppercase'>{t('search.priceRange')}</label>
               <div className='grid grid-cols-2 gap-2'>
                 <input
                   type='number'
                   min='0'
                   value={filters.minPrice}
                   onChange={(e) => handleFilterChange('minPrice', e.target.value)}
-                  placeholder='Min $'
+                  placeholder={t('search.minPrice')}
                   className='w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg focus:outline-hidden focus:ring-1 focus:ring-slate-900'
                 />
                 <input
@@ -305,7 +338,7 @@ export default function Search() {
                   min='0'
                   value={filters.maxPrice}
                   onChange={(e) => handleFilterChange('maxPrice', e.target.value)}
-                  placeholder='Max $'
+                  placeholder={t('search.maxPrice')}
                   className='w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg focus:outline-hidden focus:ring-1 focus:ring-slate-900'
                 />
               </div>
@@ -315,26 +348,26 @@ export default function Search() {
             {filters.type !== 'car' && (
               <div className='space-y-3 pt-2 border-t border-slate-100'>
                 <span className='text-[11px] font-bold text-slate-400 uppercase tracking-wider block'>
-                  Guest House Specs
+                  {t('search.guestHouseSpecs')}
                 </span>
                 <div>
-                  <label className='text-xs text-slate-600 block mb-1'>Min Bedrooms</label>
+                  <label className='text-xs text-slate-600 block mb-1'>{t('search.minBedrooms') || 'Min Bedrooms'}</label>
                   <select
                     value={filters.bedrooms}
                     onChange={(e) => handleFilterChange('bedrooms', e.target.value)}
                     className='w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg bg-white'
                   >
-                    <option value=''>Any Bedrooms</option>
-                    <option value='1'>1+ Bedroom</option>
-                    <option value='2'>2+ Bedrooms</option>
-                    <option value='3'>3+ Bedrooms</option>
-                    <option value='4'>4+ Bedrooms</option>
+                    <option value=''>{t('search.anyBedrooms')}</option>
+                    <option value='1'>{t('search.onePlusBed')}</option>
+                    <option value='2'>{t('search.twoPlusBed')}</option>
+                    <option value='3'>{t('search.threePlusBed')}</option>
+                    <option value='4'>{t('search.fourPlusBed')}</option>
                   </select>
                 </div>
 
                 {/* Amenities */}
                 <div className='space-y-1.5 pt-1'>
-                  <label className='text-xs text-slate-600 block'>Amenities</label>
+                  <label className='text-xs text-slate-600 block'>{t('search.amenities')}</label>
                   <div className='space-y-1 text-xs text-slate-700'>
                     <label className='flex items-center gap-2 cursor-pointer'>
                       <input
@@ -343,7 +376,7 @@ export default function Search() {
                         onChange={(e) => handleFilterChange('wifi', e.target.checked)}
                         className='rounded text-slate-900'
                       />
-                      <span>Wi-Fi</span>
+                      <span>{t('search.wifi')}</span>
                     </label>
                     <label className='flex items-center gap-2 cursor-pointer'>
                       <input
@@ -352,7 +385,7 @@ export default function Search() {
                         onChange={(e) => handleFilterChange('kitchen', e.target.checked)}
                         className='rounded text-slate-900'
                       />
-                      <span>Kitchen</span>
+                      <span>{t('search.kitchen')}</span>
                     </label>
                     <label className='flex items-center gap-2 cursor-pointer'>
                       <input
@@ -361,7 +394,7 @@ export default function Search() {
                         onChange={(e) => handleFilterChange('airConditioning', e.target.checked)}
                         className='rounded text-slate-900'
                       />
-                      <span>Air Conditioning</span>
+                      <span>{t('search.airConditioning')}</span>
                     </label>
                     <label className='flex items-center gap-2 cursor-pointer'>
                       <input
@@ -370,7 +403,7 @@ export default function Search() {
                         onChange={(e) => handleFilterChange('pool', e.target.checked)}
                         className='rounded text-slate-900'
                       />
-                      <span>Pool / Garden</span>
+                      <span>{t('search.poolGarden')}</span>
                     </label>
                   </div>
                 </div>
@@ -381,19 +414,19 @@ export default function Search() {
             {filters.type !== 'guesthouse' && (
               <div className='space-y-3 pt-2 border-t border-slate-100'>
                 <span className='text-[11px] font-bold text-slate-400 uppercase tracking-wider block'>
-                  Car Leasing Specs
+                  {t('search.carLeasingSpecs')}
                 </span>
                 <div>
-                  <label className='text-xs text-slate-600 block mb-1'>Min Seats</label>
+                  <label className='text-xs text-slate-600 block mb-1'>{t('search.seats') || 'Min Seats'}</label>
                   <select
                     value={filters.seats}
                     onChange={(e) => handleFilterChange('seats', e.target.value)}
                     className='w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg bg-white'
                   >
-                    <option value=''>Any Seats</option>
-                    <option value='4'>4+ Seats (Sedan)</option>
-                    <option value='5'>5+ Seats (SUV)</option>
-                    <option value='7'>7+ Seats (Minivan / Prado)</option>
+                    <option value=''>{t('search.anySeats')}</option>
+                    <option value='4'>{t('search.fourSeats')}</option>
+                    <option value='5'>{t('search.fiveSeats')}</option>
+                    <option value='7'>{t('search.sevenSeats')}</option>
                   </select>
                 </div>
 
@@ -404,7 +437,7 @@ export default function Search() {
                     onChange={(e) => handleFilterChange('driverIncluded', e.target.checked)}
                     className='rounded text-slate-900'
                   />
-                  <span>Professional Driver Included</span>
+                  <span>{t('search.proDriverIncluded')}</span>
                 </label>
               </div>
             )}
@@ -413,7 +446,7 @@ export default function Search() {
               type='submit'
               className='w-full py-2.5 bg-black hover:bg-neutral-800 text-white font-bold rounded-lg text-xs transition shadow-sm cursor-pointer'
             >
-              Apply Filters
+              {t('search.applyFilters')}
             </button>
           </form>
         </aside>
@@ -443,7 +476,7 @@ export default function Search() {
                     disabled={loadingMore}
                     className='px-6 py-2.5 bg-black hover:bg-neutral-800 text-white font-bold rounded-xl text-xs transition shadow-sm disabled:opacity-60 cursor-pointer'
                   >
-                    {loadingMore ? 'Loading more listings...' : 'Load More Listings'}
+                    {loadingMore ? t('search.loadingMore') : t('search.loadMore')}
                   </button>
                 </div>
               )}
@@ -454,16 +487,16 @@ export default function Search() {
               <div className='w-14 h-14 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto text-2xl'>
                 <FaSearch />
               </div>
-              <h3 className='text-xl font-bold text-slate-900'>No listings found</h3>
+              <h3 className='text-xl font-bold text-slate-900'>{t('search.noListingsFound')}</h3>
               <p className='text-xs text-slate-500 leading-relaxed'>
-                We couldn&apos;t find any approved listings matching your selected search criteria. Try broadening your location or resetting filters.
+                {t('search.noListingsDesc')}
               </p>
               <button
                 type='button'
                 onClick={handleResetFilters}
                 className='px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold transition'
               >
-                Reset All Filters
+                {t('search.resetAll')}
               </button>
             </div>
           )}

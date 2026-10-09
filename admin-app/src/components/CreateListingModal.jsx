@@ -34,10 +34,7 @@ export default function CreateListingModal({ isOpen, onClose, onCreated, authHea
     driverName: '',
     driverContact: '',
     luggageCapacity: 2,
-    imageUrls: [
-      '/images/airbnb_apartment_living.jpg',
-      '/images/airbnb_apartment_bed.jpg',
-    ],
+    imageUrls: [],
   });
 
   const [newImageUrl, setNewImageUrl] = useState('');
@@ -74,19 +71,11 @@ export default function CreateListingModal({ isOpen, onClose, onCreated, authHea
     if (newCat === 'car_service') {
       setFormData((prev) => ({
         ...prev,
-        imageUrls: [
-          '/images/city_regular_sedan.jpg',
-          '/images/city_driver_car.jpg',
-        ],
         regularPrice: prev.regularPrice || '75',
       }));
     } else {
       setFormData((prev) => ({
         ...prev,
-        imageUrls: [
-          '/images/airbnb_apartment_living.jpg',
-          '/images/airbnb_apartment_bed.jpg',
-        ],
         regularPrice: prev.regularPrice || '120',
       }));
     }
@@ -164,31 +153,7 @@ export default function CreateListingModal({ isOpen, onClose, onCreated, authHea
     }
   };
 
-  const handleApplyPresetPhotos = (type) => {
-    if (type === 'guesthouse') {
-      const photos = [
-        '/images/airbnb_apartment_living.jpg',
-        '/images/airbnb_apartment_bed.jpg',
-        'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=1200&q=80',
-        'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=1200&q=80',
-      ];
-      setFormData((prev) => ({
-        ...prev,
-        imageUrls: photos,
-      }));
-    } else {
-      const photos = [
-        '/images/city_regular_sedan.jpg',
-        '/images/city_driver_car.jpg',
-        'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=1200&q=80',
-        'https://images.unsplash.com/photo-1590362891991-f776e747a588?auto=format&fit=crop&w=1200&q=80',
-      ];
-      setFormData((prev) => ({
-        ...prev,
-        imageUrls: photos,
-      }));
-    }
-  };
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -222,7 +187,7 @@ export default function CreateListingModal({ isOpen, onClose, onCreated, authHea
         title: formData.title,
         address: formData.location,
         location: formData.location,
-        city: formData.location ? formData.location.split(',')[0].trim() : 'City Center',
+        city: formData.location ? formData.location.split(',')[0].trim() : 'Makindye',
         regularPrice: Number(formData.regularPrice),
         price: Number(formData.regularPrice),
         discountPrice: formData.discountPrice ? Number(formData.discountPrice) : 0,
@@ -388,17 +353,34 @@ export default function CreateListingModal({ isOpen, onClose, onCreated, authHea
 
             <div>
               <label className='block text-xs font-semibold text-slate-700 mb-1'>
-                Location / Route <span className='text-rose-500'>*</span>
+                Makindye Neighborhood / Route <span className='text-rose-500'>*</span>
               </label>
               <input
                 type='text'
                 name='location'
+                list='admin-makindye-neighborhoods'
                 value={formData.location}
                 onChange={handleChange}
-                placeholder='e.g. 450 Pine St, Downtown or City Metro Area'
+                placeholder='e.g. Tank Hill Road, Muyenga, Makindye Division, Kampala'
                 required
                 className='w-full px-3.5 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-slate-800 focus:bg-white'
               />
+              <datalist id='admin-makindye-neighborhoods'>
+                <option value='Muyenga (Tank Hill), Makindye Division, Kampala' />
+                <option value='Munyonyo Waterfront, Makindye Division, Kampala' />
+                <option value='Buziga Hill, Makindye Division, Kampala' />
+                <option value='Ggaba Shore & Marina, Makindye Division, Kampala' />
+                <option value='Kansanga (Ggaba Road), Makindye Division, Kampala' />
+                <option value='Makindye Hill, Makindye Division, Kampala' />
+                <option value='Kabalagala, Makindye Division, Kampala' />
+                <option value='Nsambya, Makindye Division, Kampala' />
+                <option value='Kibuli, Makindye Division, Kampala' />
+                <option value='Luwafu, Makindye Division, Kampala' />
+                <option value='Katwe, Makindye Division, Kampala' />
+                <option value='Kisugu, Makindye Division, Kampala' />
+                <option value='Salaama, Makindye Division, Kampala' />
+                <option value='Bunga, Makindye Division, Kampala' />
+              </datalist>
             </div>
           </div>
 
@@ -660,22 +642,15 @@ export default function CreateListingModal({ isOpen, onClose, onCreated, authHea
 
           {/* Photo Management */}
           <div className='space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-200'>
-            <div className='flex items-center justify-between'>
-              <div>
-                <label className='text-xs font-bold uppercase tracking-wider text-slate-700 block'>
-                  Listing Photos ({formData.imageUrls.length})
-                </label>
-                <span className='text-[11px] text-slate-500'>
-                  The first image serves as the main search cover
-                </span>
-              </div>
-              <button
-                type='button'
-                onClick={() => handleApplyPresetPhotos(category)}
-                className='text-[11px] font-semibold text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-200 px-2.5 py-1 rounded transition-colors shadow-2xs'
-              >
-                + Load Preset Photos
-              </button>
+            <div>
+              <label className='text-xs font-bold uppercase tracking-wider text-slate-700 block'>
+                Listing Photos ({formData.imageUrls.length})
+              </label>
+              <span className='text-[11px] text-slate-500'>
+                {formData.imageUrls.length > 0
+                  ? 'The first image serves as the main search cover'
+                  : 'Add property photos using device camera, local file upload, or direct image URL'}
+              </span>
             </div>
 
             {/* Camera & Local File Upload Area */}

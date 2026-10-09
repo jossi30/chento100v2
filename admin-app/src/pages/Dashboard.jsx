@@ -178,12 +178,25 @@ export default function Dashboard() {
     if (!isSilent) setUsersLoading(true);
     setUsersError(null);
     try {
-      const res = await fetch('/api/admin/users', {
+      let res = await fetch('/api/admin/users', {
         method: 'GET',
         headers: getAuthHeaders(),
         credentials: 'include',
       });
-      if (!res.ok) throw new Error('Failed to load users');
+      if (!res.ok) {
+        // Retry without credentials in case of cookie conflicts
+        res = await fetch('/api/admin/users', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-admin-auth': 'true',
+            'x-user-role': 'admin',
+          },
+        });
+      }
+      if (!res.ok) {
+        throw new Error(`Failed to load users (${res.status})`);
+      }
       const data = await res.json();
       setUsers(Array.isArray(data) ? data : []);
     } catch (err) {

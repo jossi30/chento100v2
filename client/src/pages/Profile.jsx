@@ -542,7 +542,7 @@ export default function Profile() {
                   type='text'
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder='e.g. Asmara Villa Host or Red Sea Car Leasing'
+                  placeholder='e.g. Muyenga Villa Host or Munyonyo Chauffeur Services'
                   className='w-full pl-9 pr-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-slate-900'
                 />
               </div>

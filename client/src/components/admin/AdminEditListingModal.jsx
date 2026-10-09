@@ -456,7 +456,7 @@ export default function AdminEditListingModal({
                   value={formData.city}
                   onChange={handleChange}
                   className='w-full p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs'
-                  placeholder='e.g. Asmara, Massawa, Keren'
+                  placeholder='e.g. Muyenga, Munyonyo, Makindye'
                 />
               </div>
 
@@ -470,7 +470,7 @@ export default function AdminEditListingModal({
                   value={formData.area}
                   onChange={handleChange}
                   className='w-full p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs'
-                  placeholder='e.g. Tiravolo, Downtown, Gejeret'
+                  placeholder='e.g. Tank Hill, Buziga Hill, Ggaba Marina'
                 />
               </div>
             </div>

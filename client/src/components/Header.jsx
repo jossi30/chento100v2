@@ -80,34 +80,34 @@ export default function Header() {
   const navLinks = [
     {
       to: '/search?type=guesthouse',
-      label: 'Guest Houses',
+      label: t('header.guestHouses'),
       icon: FaHome,
-      sublabel: 'Boutique stays & apartments',
+      sublabel: t('header.sublabelStays'),
     },
     {
       to: '/search?type=car',
-      label: 'Car Leasing',
+      label: t('header.carLeasing'),
       icon: FaCar,
-      sublabel: 'Private cars & chauffeur rides',
+      sublabel: t('header.sublabelCars'),
     },
     {
       to: '/search?offer=true',
-      label: 'Best Offers & Deals',
+      label: t('header.bestOffers'),
       icon: FaFire,
-      sublabel: 'Special promotional discounts',
+      sublabel: t('header.sublabelOffers'),
       badge: 'Hot',
     },
     {
       to: '/partner',
-      label: 'Partner with Us',
+      label: t('header.partnerWithUs'),
       icon: FaPlus,
-      sublabel: 'Host portal & availability manager',
+      sublabel: t('header.sublabelPartner'),
     },
     {
       to: '/about',
-      label: 'About Platform',
+      label: t('header.aboutPlatform'),
       icon: FaInfoCircle,
-      sublabel: 'Safety, guidelines & verification',
+      sublabel: t('header.sublabelAbout'),
     },
   ];
 
@@ -133,7 +133,7 @@ export default function Header() {
           >
             <input
               type='text'
-              placeholder='Search stays, cars, cities...'
+              placeholder={t('header.searchPlaceholder')}
               className='bg-transparent focus:outline-hidden text-xs sm:text-sm text-slate-800 placeholder-slate-400 w-full transition-all'
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -154,7 +154,7 @@ export default function Header() {
               className='inline-flex items-center gap-1.5 text-slate-600 hover:text-slate-950 transition-colors py-1'
             >
               <FaHome className='text-slate-400 text-xs' />
-              <span>Guest Houses</span>
+              <span>{t('header.guestHouses')}</span>
             </Link>
 
             <Link
@@ -162,7 +162,7 @@ export default function Header() {
               className='inline-flex items-center gap-1.5 text-slate-600 hover:text-slate-950 transition-colors py-1'
             >
               <FaCar className='text-slate-400 text-xs' />
-              <span>Car Leasing</span>
+              <span>{t('header.carLeasing')}</span>
             </Link>
 
             <Link
@@ -170,14 +170,14 @@ export default function Header() {
               className='inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-black text-white hover:bg-neutral-800 transition shadow-xs text-xs font-bold'
             >
               <FaPlus className='text-[10px]' />
-              <span>Partner with Us</span>
+              <span>{t('header.partnerWithUs')}</span>
             </Link>
 
             {isAdmin && (
               <Link to='/admin-dashboard'>
                 <li className='flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full bg-black text-amber-300 hover:bg-neutral-800 transition shadow-xs'>
                   <FaShieldAlt className='text-xs' />
-                  <span>Admin</span>
+                  <span>{t('header.admin')}</span>
                 </li>
               </Link>
             )}
@@ -204,7 +204,7 @@ export default function Header() {
                 />
               ) : (
                 <span className='text-white bg-black hover:bg-neutral-800 font-bold text-xs px-3.5 py-1.5 rounded-full shadow-xs transition'>
-                  Sign In
+                  {t('header.signIn')}
                 </span>
               )}
             </Link>
@@ -301,17 +301,17 @@ export default function Header() {
                   onClick={() => setMobileMenuOpen(false)}
                   className='px-2.5 py-1 text-xs font-bold bg-white text-slate-900 border border-slate-200 rounded-lg hover:bg-slate-100 transition shrink-0'
                 >
-                  Profile
+                  {t('header.profile')}
                 </Link>
               </div>
             ) : (
               <div className='space-y-2'>
                 <div className='flex items-center gap-2 text-slate-800 text-xs font-bold'>
                   <FaUser className='text-slate-400' />
-                  <span>Welcome to chento 100</span>
+                  <span>{t('header.welcome')}</span>
                 </div>
                 <p className='text-[11px] text-slate-500 leading-relaxed'>
-                  Sign in to message hosts, request bookings, and manage your property or vehicle listings.
+                  {t('header.welcomeDesc')}
                 </p>
                 <div className='grid grid-cols-2 gap-2 pt-1'>
                   <Link
@@ -319,14 +319,14 @@ export default function Header() {
                     onClick={() => setMobileMenuOpen(false)}
                     className='py-2 px-3 text-center bg-black text-white rounded-xl text-xs font-bold hover:bg-neutral-800 transition shadow-xs'
                   >
-                    Sign In
+                    {t('header.signIn')}
                   </Link>
                   <Link
                     to='/sign-up'
                     onClick={() => setMobileMenuOpen(false)}
                     className='py-2 px-3 text-center bg-black text-white rounded-xl text-xs font-bold hover:bg-neutral-800 transition shadow-xs'
                   >
-                    Register
+                    {t('header.register')}
                   </Link>
                 </div>
               </div>
@@ -336,7 +336,7 @@ export default function Header() {
           {/* Primary Navigation Links */}
           <div className='space-y-1.5'>
             <span className='text-[10px] font-extrabold uppercase tracking-wider text-slate-400 px-2 block'>
-              Marketplace Menu
+              {t('header.marketplaceMenu')}
             </span>
             {navLinks.map((item) => {
               const Icon = item.icon;
@@ -397,7 +397,7 @@ export default function Header() {
             <div className='p-3.5 bg-amber-50/70 border border-amber-200/90 rounded-2xl space-y-2.5'>
               <div className='flex items-center gap-2 text-amber-900 text-xs font-black uppercase tracking-wider'>
                 <FaShieldAlt className='text-amber-600' />
-                <span>Administration Suite</span>
+                <span>{t('header.adminSuite')}</span>
               </div>
               <div className='grid grid-cols-1 gap-2'>
                 <Link
@@ -405,14 +405,14 @@ export default function Header() {
                   onClick={() => setMobileMenuOpen(false)}
                   className='p-2.5 bg-white text-slate-900 font-bold rounded-xl text-xs border border-amber-200 shadow-2xs hover:bg-amber-100 transition flex items-center justify-between'
                 >
-                  <span>Queue &amp; Moderation</span>
+                  <span>{t('header.queueModeration')}</span>
                   <FaChevronRight className='text-[10px] text-slate-400' />
                 </Link>
                 <a
                   href='/admin/'
                   className='p-2.5 bg-slate-900 text-amber-300 font-bold rounded-xl text-xs shadow-2xs hover:bg-slate-800 transition flex items-center justify-between'
                 >
-                  <span>Standalone Admin App</span>
+                  <span>{t('header.standaloneAdmin')}</span>
                   <FaChevronRight className='text-[10px] text-amber-400' />
                 </a>
               </div>
@@ -441,13 +441,13 @@ export default function Header() {
             </button>
           </div>
 
-          {/* Quick City Shortcuts */}
+          {/* Quick Neighborhood Shortcuts */}
           <div className='space-y-2 pt-1'>
             <span className='text-[10px] font-extrabold uppercase tracking-wider text-slate-400 px-2 block'>
-              Popular Cities
+              {t('header.makindyeNeighborhoods')}
             </span>
             <div className='flex flex-wrap gap-1.5'>
-              {['Asmara', 'Massawa', 'Keren', 'Downtown', 'Airport'].map((c) => (
+              {['Muyenga', 'Munyonyo', 'Buziga', 'Ggaba', 'Kansanga', 'Makindye'].map((c) => (
                 <button
                   key={c}
                   type='button'
@@ -474,12 +474,12 @@ export default function Header() {
               className='w-full py-2.5 px-4 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs flex items-center justify-center gap-2 transition cursor-pointer'
             >
               <FaSignOutAlt />
-              <span>Sign Out of Account</span>
+              <span>{t('header.signOut')}</span>
             </button>
           )}
 
           <p className='text-[10px] text-slate-400 text-center'>
-            chento 100 • Moderated Hospitality &amp; Car Leasing
+            {t('footer.moderatedNote')}
           </p>
         </div>
       </aside>

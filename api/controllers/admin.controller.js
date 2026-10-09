@@ -4,6 +4,7 @@ import User from '../models/user.model.js';
 import { errorHandler } from '../utils/error.js';
 import { mockStore } from '../utils/mockStore.js';
 import { storage } from '../utils/storage.js';
+import { firebaseStore } from '../utils/firebaseStore.js';
 
 const isDbConnected = () => mongoose.connection.readyState === 1;
 
@@ -170,13 +171,43 @@ export const toggleActiveListing = toggleStatusListing;
  */
 export const getUsers = async (req, res, next) => {
   try {
-    let users = firebaseStore.getAllUsers();
+    let users = [];
+    if (typeof firebaseStore?.getAllUsers === 'function') {
+      users = firebaseStore.getAllUsers();
+    } else if (typeof firebaseStore?.getUsers === 'function') {
+      users = firebaseStore.getUsers();
+    }
+
     if (!users || users.length === 0) {
-      users = mockStore.getAllUsers();
+      if (typeof mockStore?.getAllUsers === 'function') {
+        users = mockStore.getAllUsers();
+      }
+    }
+
+    if (!Array.isArray(users)) {
+      users = [];
+    }
+
+    // Also include MongoDB users if connected
+    if (isDbConnected()) {
+      try {
+        const dbUsers = await User.find({}).lean();
+        if (Array.isArray(dbUsers) && dbUsers.length > 0) {
+          const userMap = new Map();
+          users.forEach((u) => userMap.set(String(u._id || u.id), u));
+          dbUsers.forEach((u) => {
+            const id = String(u._id || u.id);
+            userMap.set(id, { ...userMap.get(id), ...u });
+          });
+          users = Array.from(userMap.values());
+        }
+      } catch (dbErr) {
+        console.warn('DB fetch users notice:', dbErr.message);
+      }
     }
 
     // Get listings to calculate real-time listing count for each host
-    const allListings = firebaseStore.getListings({ all: 'true', isAdmin: 'true' }) || [];
+    const allListings = (typeof firebaseStore?.getListings === 'function' ? firebaseStore.getListings({ all: 'true', isAdmin: 'true' }) : storage.getAllListings()) || [];
 
     const enrichedUsers = users.map((u) => {
       const userListings = allListings.filter(
@@ -320,18 +351,16 @@ export const adminCreateListing = async (req, res, next) => {
 
     const title = req.body.title || req.body.name || 'Untitled Listing';
     const name = req.body.name || req.body.title || 'Untitled Listing';
-    const address = req.body.address || req.body.location || 'City Center';
-    const location = req.body.location || req.body.address || 'City Center';
+    const address = req.body.address || req.body.location || 'Makindye Division, Kampala';
+    const location = req.body.location || req.body.address || 'Makindye Division, Kampala';
 
-    let imageUrls = req.body.imageUrls || req.body.imageURLs || [];
-    if (!Array.isArray(imageUrls) || imageUrls.length === 0) {
-      imageUrls = category === 'car_service'
-        ? ['/images/city_regular_sedan.jpg', '/images/city_driver_car.jpg']
-        : ['/images/airbnb_apartment_living.jpg', '/images/airbnb_apartment_bed.jpg'];
+    let imageUrls = req.body.imageUrls || req.body.imageURLs || req.body.images || [];
+    if (!Array.isArray(imageUrls)) {
+      imageUrls = [];
     }
 
     const type = category === 'car_service' || req.body.type === 'car' ? 'car' : 'guesthouse';
-    const city = req.body.city || location.split(',')[0].trim() || 'City Center';
+    const city = req.body.city || location.split(',')[0].trim() || 'Makindye';
 
     const listingData = {
       ...req.body,
