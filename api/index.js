@@ -99,7 +99,9 @@ app.get(['/admin', '/admin/*'], (req, res, next) => {
   next();
 });
 
-// Serve public images
+// Serve public assets from client/public and admin-app/public
+app.use(express.static(path.join(__dirname, 'client', 'public')));
+app.use('/admin', express.static(path.join(__dirname, 'admin-app', 'public')));
 app.use('/images', express.static(path.join(__dirname, 'client', 'public', 'images')));
 
 // Serve static frontend assets from client/dist

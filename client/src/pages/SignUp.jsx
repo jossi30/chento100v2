@@ -4,7 +4,6 @@ import { useDispatch } from 'react-redux';
 import { signInSuccess } from '../redux/user/userSlice';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
-import OAuth from '../components/OAuth';
 import { FaUser, FaEnvelope, FaLock, FaPhone } from 'react-icons/fa';
 
 export default function SignUp() {
@@ -220,17 +219,6 @@ export default function SignUp() {
           >
             {loading ? 'Creating account...' : t('signup.submitButton') || 'Sign Up'}
           </button>
-
-          <div className='relative my-3'>
-            <div className='absolute inset-0 flex items-center'>
-              <div className='w-full border-t border-slate-200'></div>
-            </div>
-            <div className='relative flex justify-center text-xs uppercase'>
-              <span className='bg-white px-2 text-slate-400 font-semibold'>Or</span>
-            </div>
-          </div>
-
-          <OAuth />
         </form>
 
         <div className='mt-5 text-center text-xs text-slate-600'>

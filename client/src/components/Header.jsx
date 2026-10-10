@@ -12,7 +12,6 @@ import {
   FaSignOutAlt,
   FaInfoCircle,
   FaChevronRight,
-  FaMapMarkerAlt,
 } from 'react-icons/fa';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
@@ -186,10 +185,27 @@ export default function Header() {
               type='button'
               onClick={toggleLanguage}
               title={t('header.langTitle')}
-              className='flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 transition shadow-2xs cursor-pointer'
+              className='inline-flex items-center p-0.5 rounded-full border border-slate-200 bg-slate-100 hover:border-slate-300 transition shadow-2xs cursor-pointer shrink-0'
+              aria-label={t('header.langTitle')}
             >
-              <FaGlobe className='text-slate-500 text-xs' />
-              <span>{t('header.langToggle')}</span>
+              <span
+                className={`px-1.5 py-0.5 text-[10px] font-bold rounded-full transition-all ${
+                  language === 'en'
+                    ? 'bg-white text-slate-900 shadow-2xs'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                EN
+              </span>
+              <span
+                className={`px-1.5 py-0.5 text-[10px] font-bold rounded-full transition-all ${
+                  language === 'ti'
+                    ? 'bg-white text-slate-900 shadow-2xs'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                ትግ
+              </span>
             </button>
 
             <Link to='/profile' className='flex items-center'>
@@ -420,49 +436,41 @@ export default function Header() {
           )}
 
           {/* Language Switcher */}
-          <div className='pt-2'>
-            <button
-              type='button'
-              onClick={() => {
-                toggleLanguage();
-              }}
-              className='w-full flex items-center justify-between p-3 rounded-2xl border border-slate-200 hover:bg-slate-50 transition text-xs font-semibold text-slate-700 cursor-pointer'
-            >
-              <div className='flex items-center gap-2.5'>
-                <FaGlobe className='text-slate-500' />
-                <span>Language / ቋንቋ:</span>
-                <span className='font-bold text-slate-900 uppercase'>
-                  {language === 'ti' ? 'ትግርኛ (Tigrinya)' : 'English'}
-                </span>
+          <div className='pt-1'>
+            <div className='flex items-center justify-between py-1.5 px-3 rounded-xl border border-slate-200 bg-slate-50/70'>
+              <div className='flex items-center gap-2 text-xs font-semibold text-slate-700'>
+                <FaGlobe className='text-slate-400 text-xs' />
+                <span>Language / ቋንቋ</span>
               </div>
-              <span className='px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600'>
-                {t('header.langToggle')}
-              </span>
-            </button>
-          </div>
-
-          {/* Quick Neighborhood Shortcuts */}
-          <div className='space-y-2 pt-1'>
-            <span className='text-[10px] font-extrabold uppercase tracking-wider text-slate-400 px-2 block'>
-              {t('header.makindyeNeighborhoods')}
-            </span>
-            <div className='flex flex-wrap gap-1.5'>
-              {['Muyenga', 'Munyonyo', 'Buziga', 'Ggaba', 'Kansanga', 'Makindye'].map((c) => (
-                <button
-                  key={c}
-                  type='button'
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    navigate(`/search?city=${encodeURIComponent(c)}`);
-                  }}
-                  className='px-2.5 py-1 rounded-xl text-[11px] font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition cursor-pointer flex items-center gap-1'
+              <button
+                type='button'
+                onClick={toggleLanguage}
+                title={t('header.langTitle')}
+                className='inline-flex items-center p-0.5 rounded-full border border-slate-200 bg-white transition shadow-2xs cursor-pointer'
+                aria-label={t('header.langTitle')}
+              >
+                <span
+                  className={`px-2 py-0.5 text-[10px] font-bold rounded-full transition-all ${
+                    language === 'en'
+                      ? 'bg-slate-900 text-white shadow-2xs'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
                 >
-                  <FaMapMarkerAlt className='text-[9px] text-slate-400' />
-                  <span>{c}</span>
-                </button>
-              ))}
+                  EN
+                </span>
+                <span
+                  className={`px-2 py-0.5 text-[10px] font-bold rounded-full transition-all ${
+                    language === 'ti'
+                      ? 'bg-slate-900 text-white shadow-2xs'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  ትግ
+                </span>
+              </button>
             </div>
           </div>
+
         </div>
 
         {/* Drawer Bottom Footer */}
