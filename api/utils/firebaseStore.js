@@ -7,13 +7,18 @@ export { normalizeListing };
 
 export const getFirebaseConfig = () => {
   try {
-    const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
-    if (fs.existsSync(configPath)) {
-      const data = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-      return {
-        projectId: data.projectId || process.env.VITE_FIREBASE_PROJECT_ID || 'chento100',
-        firestoreDatabaseId: data.firestoreDatabaseId || process.env.VITE_FIRESTORE_DATABASE_ID || '(default)',
-      };
+    const candidatePaths = [
+      path.join(process.cwd(), 'firebase-applet-config.json'),
+      path.join(process.cwd(), '..', 'firebase-applet-config.json'),
+    ];
+    for (const configPath of candidatePaths) {
+      if (fs.existsSync(configPath)) {
+        const data = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+        return {
+          projectId: data.projectId || process.env.VITE_FIREBASE_PROJECT_ID || 'chento100',
+          firestoreDatabaseId: data.firestoreDatabaseId || process.env.VITE_FIRESTORE_DATABASE_ID || '(default)',
+        };
+      }
     }
   } catch {
     // ignore

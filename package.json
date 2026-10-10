@@ -6,7 +6,8 @@
   "type": "module",
   "workspaces": [
     "client",
-    "admin-app"
+    "admin-app",
+    "api"
   ],
   "scripts": {
     "dev": "node api/index.js",

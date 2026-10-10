@@ -143,15 +143,18 @@ app.use((err, req, res, next) => {
   });
 });
 
-const server = app.listen(3000, '0.0.0.0', () => {
-  console.log('Server is running on port 3000 (0.0.0.0)!');
+const PORT = process.env.PORT || 3000;
+const server = app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server is running on port ${PORT} (0.0.0.0)!`);
 });
 
 server.on('error', (err) => {
   if (err.code === 'EADDRINUSE') {
-    console.warn('Port 3000 already in use, exiting cleanly for orchestrator restart...');
+    console.warn(`Port ${PORT} already in use, exiting cleanly for orchestrator restart...`);
     process.exit(1);
   } else {
     console.error('Server error:', err);
   }
 });
+
+export default app;

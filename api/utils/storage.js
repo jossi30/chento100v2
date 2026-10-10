@@ -1,7 +1,14 @@
 import fs from 'fs';
 import path from 'path';
 
-const DATA_DIR = path.join(process.cwd(), 'api', 'data');
+const resolveDataDir = () => {
+  const rootData = path.join(process.cwd(), 'api', 'data');
+  if (fs.existsSync(rootData)) return rootData;
+  const directData = path.join(process.cwd(), 'data');
+  if (fs.existsSync(directData)) return directData;
+  return rootData;
+};
+const DATA_DIR = resolveDataDir();
 const LISTINGS_FILE = path.join(DATA_DIR, 'listings.json');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
 
